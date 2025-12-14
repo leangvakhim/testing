@@ -1,23 +1,14 @@
 from ssa_pm import ssapm
 from coverage import coverage
 from benchmark import benchmark
+import numpy as np
+import opfunu
+
+funcs = opfunu.cec_based.cec2017.CEC2017(ndim=30)
 
 print("1. Coverage testing")
 print("2. Benchmark testing")
 val = int(input("Enter opt: "))
-
-pop_size = 20
-max_iter = 100
-lb = 0
-ub = 50
-
-dim = 2
-f_best_prev = 0.0
-num_sensor = 20
-w = 50
-h = 50
-sensing_radius = 10
-r_error = 5
 
 params = {
     'tau_stagnate':5,
@@ -56,20 +47,55 @@ params = {
 
 if val == 1:
     print("Coverage testing")
+    pop_size = 20
+    max_iter = 500
+    lb = 0
+    ub = 50
+    dim = 2
+    num_sensor = 20
+    w = 50
+    h = 50
+    sensing_radius = 10
+    r_error = 5
     testing = ssapm(lb, ub, dim, pop_size, max_iter, params)
-    x_val = testing.initialize()
-    cov = coverage(w, h, num_sensor, sensing_radius, r_error, x_val)
-    cov.plot_coverage()
+    # x_val = testing.initialize()
+    best_fitness, best_pos, convergence_curve = testing.run()
+    # print(f"Best fitness: {best_fitness:.4e}")
+    # print(f"Best pos: {best_pos}")
+    # cov = coverage(w, h, num_sensor, sensing_radius, r_error, best_pos)
+    # cov.plot_coverage()
     # print(x_val)
 elif val == 2:
     print("Benchmark testing")
-    lb = -30
-    ub = 30
+    times = 30
+    list_val = []
+    lb = -10
+    ub = 10
     pop_size = 30
-    dim = 30
+    dim = 2
     max_iter = 500
-    testing = ssapm(lb, ub, dim, pop_size, max_iter, params)
-    list_fitness = testing.run()
+
+    def obj_func(val):
+        return funcs.evaluate(np.clip(val, lb, ub), func_num=1)
+
+    # def obj_func(val):
+    #     obj_func = benchmark(lb, ub, dim)
+    #     return obj_func.F15_function(val)
+
+    testing = ssapm(lb, ub, dim, pop_size, max_iter, params, obj_func)
+
+    for _ in range(times):
+        best_fitness, best_pos, convergence_curve = testing.run()
+        list_val.append(best_fitness)
+
+    mean_val = np.mean(list_val)
+    std_val = np.std(list_val)
+    best_val = np.min(list_val)
+    worst_val = np.max(list_val)
+    print(f"Mean: {mean_val:.4e}")
+    print(f"Standard Deviation: {std_val:.4e}")
+    print(f"Best: {best_val:.4e}")
+    print(f"Worst: {worst_val:.4e}")
     # print(f"List fitness: {list_fitness}")
     # x_val = testing.initialize()
     # score_fitness = testing.obj_func(x_val)

@@ -4,21 +4,22 @@ from tqdm import tqdm
 import math
 
 class ssapm():
-    def __init__(self, lb, ub, dim, n, max_iter, params):
+    def __init__(self, lb, ub, dim, n, max_iter, params, obj_func):
         self.lb = lb
         self.ub = ub
         self.dim = dim
         self.n = n
         self.max_iter = max_iter
         self.params = params
+        self.obj_func = obj_func
 
     def initialize(self):
         x = self.lb + np.random.rand(self.n, self.dim) * (self.ub - self.lb)
         return x
 
-    def obj_func(self, val):
-        obj_func = benchmark(self.lb, self.ub, self.dim)
-        return obj_func.F5_function(val)
+    # def obj_func(self, val):
+    #     obj_func = benchmark(self.lb, self.ub, self.dim)
+    #     return obj_func.F15_function(val)
 
     def levy_flight_jump(self):
         small_sigma_mu_numerator = math.gamma(1 + self.params['beta_levy_flight']) * (math.sin(math.pi * self.params['beta_levy_flight'] / 2))
@@ -87,6 +88,7 @@ class ssapm():
         list_fitness = []
         stagnate_count = 0
         repel = 0
+        convergence_curve = []
         current_pos = self.initialize()
         for i in range(0, self.n):
             fitness = self.obj_func(current_pos[i])
@@ -166,29 +168,24 @@ class ssapm():
                     # check if already jump via Levy Flight
                     if i == 0 and self.params['flag_stagnate']:
                         continue
-                    # else:
-                    old_pos = current_pos[i].copy()
-                    old_fitness = list_fitness[i]
-
-                    r_2 = np.random.rand()
-                    alpha = np.random.rand()
-                    L = np.ones(self.dim)
-
-                    if r_2 < self.params['st']:
-                        current_pos[i] = current_pos[i] * np.exp(-i / (alpha * self.max_iter))
                     else:
-                        current_pos[i] = current_pos[i] + np.random.normal() * L
+                        # old_pos = current_pos[i].copy()
+                        # old_fitness = list_fitness[i]
+                        r_2 = np.random.rand()
+                        alpha = np.random.rand()
+                        L = np.ones(self.dim)
+
+                        if r_2 < self.params['st']:
+                            current_pos[i] = current_pos[i] * np.exp(-i / (alpha * self.max_iter))
+                        else:
+                            current_pos[i] = current_pos[i] + np.random.normal() * L
 
                     current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
-                    new_fitness = self.obj_func(current_pos[i])
-                    if i == 0 and new_fitness < old_fitness:
-                        current_pos[i] = old_pos
-                        list_fitness[i] = old_fitness
-                    else:
-                        list_fitness[i] = new_fitness
-                    # if list_fitness[i] < prev_best_fitness:
-                    #     prev_best_fitness = list_fitness[i]
-                    #     prev_best_pos = current_pos[i].copy()
+                    list_fitness[i] = self.obj_func(current_pos[i])
+
+                    if list_fitness[i] < prev_best_fitness:
+                        prev_best_fitness = list_fitness[i]
+                        prev_best_pos = current_pos[i].copy()
 
                 # scrounger update
                 else:
@@ -226,8 +223,11 @@ class ssapm():
 
             prev_best_fitness, prev_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
-            current_best = prev_best_fitness
+            # current_best = prev_best_fitness
 
-        print(f"current_best: {current_best:.4e}")
-        print(f"list fitness: {list_fitness}")
-        return list_fitness
+            convergence_curve.append(prev_best_fitness)
+
+        # print(f"prev_best_fitness: {prev_best_fitness:.4e}")
+        # print(f"convergence_curve: {convergence_curve}")
+        # print(f"prev_best_pos: {prev_best_pos}")
+        return prev_best_fitness, prev_best_pos, convergence_curve
