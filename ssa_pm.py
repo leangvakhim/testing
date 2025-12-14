@@ -203,9 +203,12 @@ class ssapm():
                         fitness_new = self.obj_func(fitness_temp)
                         delta_fitness = fitness_new - list_fitness[0]
 
-                        if delta_fitness >= 0:
+                        # if delta_fitness >= 0:
+                        if delta_fitness > 0:
+                            # repel = 1 - np.exp(-delta_fitness / (temperature_current + self.params['epsilon']))
                             repel = 1
                         else:
+                            # repel = 0
                             repel = np.exp(delta_fitness / temperature_current)
 
                         if repel > np.random.rand():

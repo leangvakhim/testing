@@ -3,11 +3,12 @@ from coverage import coverage
 from benchmark import benchmark
 import numpy as np
 import opfunu
-
-funcs = opfunu.cec_based.cec2017.CEC2017(ndim=30)
+import opfunu.cec_based.cec2017 as cec2017
+import opfunu.cec_based.cec2020 as cec2020
+import opfunu.cec_based.cec2022 as cec2022
 
 print("1. Coverage testing")
-print("2. Benchmark testing")
+print("2. Benchmark testing (CEC 2017/2020/2022)")
 val = int(input("Enter opt: "))
 
 params = {
@@ -26,7 +27,7 @@ params = {
     'g_0': 100,
     'alpha_gsa': 20,
     't_0': 100,
-    'alpha_sa': 0.95,
+    'alpha_sa': 0.99,
     'epsilon': 1e-50,
     'r_base': 5,
     'heat_lambda': 2,
@@ -68,37 +69,53 @@ if val == 1:
 elif val == 2:
     print("Benchmark testing")
     times = 30
-    list_val = []
-    lb = -10
-    ub = 10
+    lb = -100
+    ub = 100
     pop_size = 30
-    dim = 2
-    max_iter = 500
+    dim = 30
+    max_iter = 1000
 
-    def obj_func(val):
-        return funcs.evaluate(np.clip(val, lb, ub), func_num=1)
+    # CEC 2017 (F1 - F30)
+    # funcs = opfunu.cec_based.cec2017.CEC2017(ndim=dim)
+    # func_range = range(1, 31)
+    # func_id = [1] + list(range(3, 4))
 
-    # def obj_func(val):
-    #     obj_func = benchmark(lb, ub, dim)
-    #     return obj_func.F15_function(val)
+    # CEC 2020 (F1 - F10)
+    # func = opfunu.cec_based.cec2020.CEC2020(ndim=dim)
+    # func_range = range(1, 11)
 
-    testing = ssapm(lb, ub, dim, pop_size, max_iter, params, obj_func)
+    # CEC 2022 (F1 - F12)
+    # func = opfunu.cec_based.cec2022.CEC2022(ndim=dim)
+    func_id = list(range(1, 3))
 
-    for _ in range(times):
-        best_fitness, best_pos, convergence_curve = testing.run()
-        list_val.append(best_fitness)
+    print(f"{'Fun':<5} | {'Mean':<12} | {'Std':<12} | {'Best':<12} | {'Worst':<12}")
+    print("-" * 65)
 
-    mean_val = np.mean(list_val)
-    std_val = np.std(list_val)
-    best_val = np.min(list_val)
-    worst_val = np.max(list_val)
-    print(f"Mean: {mean_val:.4e}")
-    print(f"Standard Deviation: {std_val:.4e}")
-    print(f"Best: {best_val:.4e}")
-    print(f"Worst: {worst_val:.4e}")
-    # print(f"List fitness: {list_fitness}")
-    # x_val = testing.initialize()
-    # score_fitness = testing.obj_func(x_val)
-    # print(f"Score fitness: {score_fitness:.4e}")
+    for f_id in func_id:
+        try:
+            func_name = f"F{f_id}2020"
+            func_class = getattr(cec2020, func_name)
+            benchmark_obj = func_class(ndim=dim)
+        except AttributeError:
+            print(f"Function {func_name} not found")
+            continue
+
+        def obj_func(val):
+            return benchmark_obj.evaluate(val)
+
+        list_val = []
+
+        for _ in range(times):
+            optimizer = ssapm(lb, ub, dim, pop_size, max_iter, params, obj_func)
+            best_fitness, best_pos, convergence_curve = optimizer.run()
+            list_val.append(best_fitness)
+
+
+        mean_val = np.mean(list_val)
+        std_val = np.std(list_val)
+        best_val = np.min(list_val)
+        worst_val = np.max(list_val)
+
+        print(f"F{f_id:<4} | {mean_val:.4e} | {std_val:4e} | {best_val:4e} | {worst_val:4e}")
 else:
     print("Invalid option")
