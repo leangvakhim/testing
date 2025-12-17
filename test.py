@@ -12,7 +12,7 @@ print("2. Benchmark testing (CEC 2017/2020/2022)")
 val = int(input("Enter opt: "))
 
 params = {
-    'tau_stagnate':5,
+    'tau_stagnate':600,
     'flag_stagnate': False,
 
     # levy-flight
@@ -69,11 +69,12 @@ if val == 1:
 elif val == 2:
     print("Benchmark testing")
     times = 30
-    lb = -100
-    ub = 100
+    lb = -30
+    ub = 30
     pop_size = 30
     dim = 30
-    max_iter = 1000
+    max_iter = 500
+    list_val = []
 
     # CEC 2017 (F1 - F30)
     # funcs = opfunu.cec_based.cec2017.CEC2017(ndim=dim)
@@ -86,36 +87,49 @@ elif val == 2:
 
     # CEC 2022 (F1 - F12)
     # func = opfunu.cec_based.cec2022.CEC2022(ndim=dim)
-    func_id = list(range(1, 3))
+    # func_id = list(range(1, 3))
 
-    print(f"{'Fun':<5} | {'Mean':<12} | {'Std':<12} | {'Best':<12} | {'Worst':<12}")
-    print("-" * 65)
+    # print(f"{'Fun':<5} | {'Mean':<12} | {'Std':<12} | {'Best':<12} | {'Worst':<12}")
+    # print("-" * 65)
 
-    for f_id in func_id:
-        try:
-            func_name = f"F{f_id}2020"
-            func_class = getattr(cec2020, func_name)
-            benchmark_obj = func_class(ndim=dim)
-        except AttributeError:
-            print(f"Function {func_name} not found")
-            continue
+    # for f_id in func_id:
+    #     try:
+    #         func_name = f"F{f_id}2020"
+    #         func_class = getattr(cec2020, func_name)
+    #         benchmark_obj = func_class(ndim=dim)
+    #     except AttributeError:
+    #         print(f"Function {func_name} not found")
+    #         continue
 
-        def obj_func(val):
-            return benchmark_obj.evaluate(val)
+    #     def obj_func(val):
+    #         return benchmark_obj.evaluate(val)
 
-        list_val = []
+    #     list_val = []
 
-        for _ in range(times):
-            optimizer = ssapm(lb, ub, dim, pop_size, max_iter, params, obj_func)
-            best_fitness, best_pos, convergence_curve = optimizer.run()
-            list_val.append(best_fitness)
+    #     for _ in range(times):
+    #         optimizer = ssapm(lb, ub, dim, pop_size, max_iter, params, obj_func)
+    #         best_fitness, best_pos, convergence_curve = optimizer.run()
+    #         list_val.append(best_fitness)
 
 
-        mean_val = np.mean(list_val)
-        std_val = np.std(list_val)
-        best_val = np.min(list_val)
-        worst_val = np.max(list_val)
+    #     mean_val = np.mean(list_val)
+    #     std_val = np.std(list_val)
+    #     best_val = np.min(list_val)
+    #     worst_val = np.max(list_val)
 
-        print(f"F{f_id:<4} | {mean_val:.4e} | {std_val:4e} | {best_val:4e} | {worst_val:4e}")
+    #     print(f"F{f_id:<4} | {mean_val:.4e} | {std_val:4e} | {best_val:4e} | {worst_val:4e}")
+
+    for _ in range(times):
+        testing = ssapm(lb, ub, dim, pop_size, max_iter, params, "F5_function")
+        best_fitness, best_pos, convergence_curve = testing.run()
+        list_val.append(best_fitness)
+    mean_val = np.mean(list_val)
+    std_val = np.std(list_val)
+    best_val = np.min(list_val)
+    worst_val = np.max(list_val)
+    print(f"Mean: {mean_val:.4e}")
+    print(f"Std: {std_val:.4e}")
+    print(f"Best: {best_val:.4e}")
+    print(f"Worst: {worst_val:.4e}")
 else:
     print("Invalid option")

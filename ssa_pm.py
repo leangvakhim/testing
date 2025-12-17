@@ -18,6 +18,12 @@ class ssapm():
         x = self.lb + np.random.rand(self.n, self.dim) * (self.ub - self.lb)
         return x
 
+    def obj_func(self, val):
+        obj_func = benchmark(self.lb, self.ub, self.dim)
+        func_to_call = getattr(obj_func, self.func_name)
+        f_name = func_to_call(val)
+        return f_name
+
     # def obj_func(self, val):
     #     obj_func = benchmark(self.lb, self.ub, self.dim)
     #     func_to_call = getattr(obj_func, self.func_name)
@@ -74,7 +80,7 @@ class ssapm():
 
                 candidate_pos = current_pos[i] + explosion_amplitude * random_vector
                 candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
-                candidate_fitness = obj_func(candidate_pos)
+                candidate_fitness = self.obj_func(candidate_pos)
 
                 if candidate_fitness < local_best_spark_fitness:
                     local_best_spark_fitness = candidate_fitness
@@ -99,7 +105,7 @@ class ssapm():
         convergence_curve = []
         current_pos = self.initialize()
         for i in range(0, self.n):
-            fitness = obj_func(current_pos[i])
+            fitness = self.obj_func(current_pos[i])
             list_fitness.append(fitness)
             # print(f"Sparrow {i} Initial Fitness: {fitness}")
 
@@ -128,7 +134,7 @@ class ssapm():
                 # levy flight
                 step_val = self.levy_flight_jump()
                 new_fitness_pos = prev_best_pos + step_val * self.params['alpha_levy_flight'] * (self.ub - self.lb)
-                new_fitness = obj_func(new_fitness_pos)
+                new_fitness = self.obj_func(new_fitness_pos)
 
                 if new_fitness < old_fitness_best:
                     current_pos[current_best_index] = new_fitness_pos
@@ -140,7 +146,7 @@ class ssapm():
                 # chaotic rebirth
                 new_ashes = self.chaotic_rebirth()
                 current_pos[current_worst_index] = new_ashes
-                new_fitness_ashes = obj_func(new_ashes)
+                new_fitness_ashes = self.obj_func(new_ashes)
                 list_fitness[current_worst_index] = new_fitness_ashes
 
                 # print(f"{t} Ashes Rebirth: Old Worst {old_fitness_worst:.4f} -> New Random {new_fitness_ashes:.4f}")
@@ -189,7 +195,7 @@ class ssapm():
                             current_pos[i] = current_pos[i] + np.random.normal() * L
 
                     current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
-                    list_fitness[i] = obj_func(current_pos[i])
+                    list_fitness[i] = self.obj_func(current_pos[i])
 
                     if list_fitness[i] < prev_best_fitness:
                         prev_best_fitness = list_fitness[i]
@@ -208,7 +214,7 @@ class ssapm():
                     if distance_temp_best_fitness >= r_heat:
                         current_pos[i] = fitness_temp
                     else:
-                        fitness_new = obj_func(fitness_temp)
+                        fitness_new = self.obj_func(fitness_temp)
                         delta_fitness = fitness_new - list_fitness[0]
 
                         # if delta_fitness >= 0:
@@ -226,7 +232,7 @@ class ssapm():
                             current_pos[i] = fitness_temp
 
                 current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
-                list_fitness[i] = obj_func(current_pos[i])
+                list_fitness[i] = self.obj_func(current_pos[i])
 
                 if list_fitness[i] < prev_best_fitness:
                     prev_best_fitness = list_fitness[i]
