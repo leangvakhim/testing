@@ -112,14 +112,20 @@ class ssapm():
         prev_best_fitness = np.min(list_fitness)
         start_best_index = np.argmin(list_fitness)
         prev_best_pos = current_pos[start_best_index].copy()
+        # print(f"List fitness: {list_fitness}")
+        # print(f"previous best before loop: {prev_best_fitness:.4e}  ")
 
         for t in tqdm(range(0, self.max_iter), desc="Progress: "):
             current_best = np.min(list_fitness)
             current_best_index = np.argmin(list_fitness)
             current_worst_index = np.argmax(list_fitness)
 
+            # print(f"list_fitness: {list_fitness}")
+            # print(f"current best: {current_best:.4e}")
+            # print(f"previous best in loop: {prev_best_fitness:.4e}  ")
             if current_best >= prev_best_fitness:
                 stagnate_count += 1
+                print("Stagnate count: ", stagnate_count)
             else:
                 stagnate_count = 0
                 prev_best_fitness = current_best
@@ -152,8 +158,12 @@ class ssapm():
                 # print(f"{t} Ashes Rebirth: Old Worst {old_fitness_worst:.4f} -> New Random {new_fitness_ashes:.4f}")
 
                 stagnate_count = 0
+                # print("Stagnate count reset")
+                # print("Previous best: ", prev_best_fitness)
                 self.params['flag_stagnate'] = True
 
+            # r_current = self.params['r_start']
+            # Adaptive role allocation
             r_current = self.params['r_end'] + (self.params['r_start'] - self.params['r_end']) * (1 - ((t / self.max_iter) ** self.params['dynamic_role_lambda']))
             producer_count = int(r_current * self.n)
             scrounger_count = self.n - producer_count

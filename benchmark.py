@@ -50,8 +50,12 @@ class benchmark():
         dimension = self.dim
         i_vector = np.arange(1, dimension + 1)
         x_pow_4 = pos**4
-        sum_part = np.sum(x_pow_4 * i_vector)
-        noise_part = np.random.rand(pos.shape[0])
+        axis = 1 if pos.ndim == 2 else None
+        sum_part = np.sum(x_pow_4 * i_vector, axis=axis)
+        if pos.ndim == 1:
+            noise_part = np.random.rand()
+        else:
+            noise_part = np.random.rand(pos.shape[0])
         return sum_part + noise_part
 
     # Multimodal Test Functions (F8 - F12)
@@ -110,8 +114,11 @@ class benchmark():
 
     # Levy's function
     def F12_function(self, pos):
+        original_ndim = pos.ndim
+        if original_ndim == 1:
+            pos = pos[np.newaxis, :]
         dimension = self.dim
-        u_sum = np.sum(self._u(pos, a=10, k=100, m=4))
+        u_sum = np.sum(self._u(pos, a=10, k=100, m=4), axis=1)
         y = 1 + (pos + 1) / 4
         part1 = 10 * np.sin(np.pi * y[:, 0])
         part3 = (y[:, -1] - 1)**2
@@ -119,13 +126,16 @@ class benchmark():
         y_i_plus_1 = y[:, 1:]
         term1 = (y_i - 1)**2
         term2 = 1 + 10 * np.sin(np.pi * y_i_plus_1)**2
-        part2_sum = np.sum(term1 * term2)
+        part2_sum = np.sum(term1 * term2, axis=1)
         total = (np.pi / dimension) * (part1 + part2_sum + part3) + u_sum
-        return total
+        return total[0] if original_ndim == 1 else total
 
     # Fixed-Dimension Test Functions (F13 - F19)
     # Six-Hump Camel function
     def F13_function(self, pos):
+        original_ndim = pos.ndim
+        if original_ndim == 1:
+            pos = pos[np.newaxis, :]
         x1 = pos[:, 0]
         x2 = pos[:, 1]
         term1 = 4 * x1**2
@@ -135,18 +145,24 @@ class benchmark():
         term5 = -4 * x2**2
         term6 = 4 * x2**4
         total_sum = term1 + term2 + term3 + term4 + term5 + term6
-        return total_sum
+        return total_sum[0] if original_ndim == 1 else total_sum
 
     def F14_function(self, pos):
+        original_ndim = pos.ndim
+        if original_ndim == 1:
+            pos = pos[np.newaxis, :]
         x1 = pos[:, 0]
         x2 = pos[:, 1]
         sinc_term = np.sinc(x1 - 2) * np.sinc(x2 - 2)
         part1 = 1 - np.abs(sinc_term)**5
         part2 = 2 + (x1 - 7)**2 + 2 * (x2 - 7)**2
         total_value = part1 * part2
-        return total_value
+        return total_value[0] if original_ndim == 1 else total_value
 
     def F15_function(self, pos):
+        original_ndim = pos.ndim
+        if original_ndim == 1:
+            pos = pos[np.newaxis, :]
         x1 = pos[:, 0]
         x2 = pos[:, 1]
         term_sqrt = np.sqrt(x1**2 + x2**2) / np.pi
@@ -156,9 +172,12 @@ class benchmark():
         term_abs2 = np.abs(term_exp * term_sins)
         term_power = (term_abs2 + 1)**(-0.1)
         total_value = -term_power
-        return total_value
+        return total_value[0] if original_ndim == 1 else total_value
 
     def F16_function(self, pos):
+        original_ndim = pos.ndim
+        if original_ndim == 1:
+            pos = pos[np.newaxis, :]
         x1 = pos[:, 0]
         x2 = pos[:, 1]
         beta = 15
@@ -170,10 +189,13 @@ class benchmark():
         part1 = term1 - term2
         part2 = (np.cos(x1)**2) * (np.cos(x2)**2)
         total_value = part1 * part2
-        return total_value
+        return total_value[0] if original_ndim == 1 else total_value
 
     # Kowalik Function
     def F17_function(self, pos):
+        original_ndim = pos.ndim
+        if original_ndim == 1:
+            pos = pos[np.newaxis, :]
         a = np.array([
             0.1957, 0.1947, 0.1735, 0.1600, 0.0844, 0.0627,
             0.0456, 0.0342, 0.0323, 0.0235, 0.0246
@@ -185,10 +207,10 @@ class benchmark():
         b = 1.0 / b_inv
         a = a.reshape(1, 11)
         b = b.reshape(1, 11)
-        x1 = x[:, 0:1]
-        x2 = x[:, 1:2]
-        x3 = x[:, 2:3]
-        x4 = x[:, 3:4]
+        x1 = pos[:, 0:1]
+        x2 = pos[:, 1:2]
+        x3 = pos[:, 2:3]
+        x4 = pos[:, 3:4]
         b_sq = b**2
         numerator = x1 * (b_sq + b * x2)
         denominator = b_sq + b * x3 + x4
@@ -196,7 +218,7 @@ class benchmark():
         inner_term = a - fraction
         squared_term = inner_term**2
         total_value = np.sum(squared_term, axis=1)
-        return total_value
+        return total_value[0] if original_ndim == 1 else total_value
 
     # Shekel function
     def F18_function(self, pos):
