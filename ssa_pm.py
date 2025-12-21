@@ -93,7 +93,7 @@ class ssapm():
         current_role = r_end + (r_start - r_end) * (1 - ((t / self.max_iter) ** dynamic_role_lambda))
         return current_role
 
-    def thermal_attraction(self, f_worst, f_current, f_best, t, c_pos, c_best_pos):
+    def thermal_attraction(self, f_worst, f_current, f_best, t, c_pos, c_best_pos, c_velocities):
         epsilon = self.params['epsilon']
         g_0 = self.params['g_0']
         alpha_gsa = self.params['alpha_gsa']
@@ -106,10 +106,24 @@ class ssapm():
         # calculate the acceleration
         acceleration = G * M[0] * (c_best_pos - c_pos) / (R + epsilon)
         # calculate velocity of each sparrow
-        velocity = np.random.rand() * velocity + acceleration
+        velocity = np.random.rand() * c_velocities + acceleration
         # position update
         att_position = c_pos + velocity
         return att_position
+
+    def producer_update(self, c_pos, i):
+        r_2 = np.random.rand()
+        alpha = np.random.rand()
+        L = np.ones(self.dim)
+        Q = np.random.normal()
+        st = self.params['st']
+
+        if r_2 < st:
+            c_pos = c_pos * np.exp(-i / alpha * self.max_iter)
+        else:
+            c_pos = c_pos + Q * L
+
+        return c_pos
 
     def run(self):
         list_fitness = []
@@ -117,6 +131,7 @@ class ssapm():
         repel = 0
         convergence_curve = []
         current_pos = self.initialize()
+        velocities = np.zeros((self.n, self.dim))
         for i in range(0, self.n):
             fitness = self.obj_func(current_pos[i])
             list_fitness.append(fitness)
@@ -189,9 +204,6 @@ class ssapm():
             fitness_worst = list_fitness[-1]
             fitness_current = list_fitness[scrounger_count]
 
-            # m = (fitness_worst - list_fitness) / (fitness_worst - fitness_best + self.params['epsilon'])
-            # M = m / np.sum(m)
-            # g = self.params['g_0'] * np.exp(-self.params['alpha_gsa'] * t / self.max_iter)
             temperature_current = self.params['t_0'] * self.params['alpha_sa'] ** t
             mean_pos = np.mean(current_pos, axis=0)
             diagonal_length = np.sqrt(((self.ub - self.lb) ** 2) * self.dim)
@@ -209,14 +221,15 @@ class ssapm():
                     else:
                         # old_pos = current_pos[i].copy()
                         # old_fitness = list_fitness[i]
-                        r_2 = np.random.rand()
-                        alpha = np.random.rand()
-                        L = np.ones(self.dim)
+                        # r_2 = np.random.rand()
+                        # alpha = np.random.rand()
+                        # L = np.ones(self.dim)
 
-                        if r_2 < self.params['st']:
-                            current_pos[i] = current_pos[i] * np.exp(-i / (alpha * self.max_iter))
-                        else:
-                            current_pos[i] = current_pos[i] + np.random.normal() * L
+                        # if r_2 < self.params['st']:
+                        #     current_pos[i] = current_pos[i] * np.exp(-i / (alpha * self.max_iter))
+                        # else:
+                        #     current_pos[i] = current_pos[i] + np.random.normal() * L
+                        current_pos[i] = self.producer_update(current_pos[i], i)
 
                     current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                     list_fitness[i] = self.obj_func(current_pos[i])
@@ -232,12 +245,7 @@ class ssapm():
                 # scrounger update
                 else:
                     # gravitational attraction
-                    # current_best_pos = current_pos[0]
-                    # print(f"current_best_pos: {current_best_pos}")
-                    # distance_best_to_each = np.linalg.norm(current_best_pos - current_pos[i])
-                    # acceleration = g * M[0] * (current_best_pos - current_pos[i]) / (distance_best_to_each + self.params['epsilon'])
-                    # fitness_temp = current_pos[i] + acceleration
-                    fitness_temp = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos)
+                    fitness_temp = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
 
                     # repulsion
                     distance_temp_best_fitness = np.linalg.norm(fitness_temp - current_best_pos)
