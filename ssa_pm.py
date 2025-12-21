@@ -12,7 +12,6 @@ class ssapm():
         self.max_iter = max_iter
         self.params = params
         self.func_name = func_name
-        # self.obj_func = obj_func
 
     def initialize(self):
         x = self.lb + np.random.rand(self.n, self.dim) * (self.ub - self.lb)
@@ -23,17 +22,6 @@ class ssapm():
         func_to_call = getattr(obj_func, self.func_name)
         f_name = func_to_call(val)
         return f_name
-
-    # def obj_func(self, val):
-    #     obj_func = benchmark(self.lb, self.ub, self.dim)
-    #     func_to_call = getattr(obj_func, self.func_name)
-    #     f_name = func_to_call(val)
-    #     print(f_name)
-    #     return f_name
-
-    # def obj_func(self, val):
-    #     obj_func = benchmark(self.lb, self.ub, self.dim)
-    #     return obj_func.F15_function(val)
 
     def levy_flight_jump(self):
         small_sigma_mu_numerator = math.gamma(1 + self.params['beta_levy_flight']) * (math.sin(math.pi * self.params['beta_levy_flight'] / 2))
@@ -98,6 +86,31 @@ class ssapm():
 
         return prev_best_fitness, prev_best_pos
 
+    def adaptive_role(self, t):
+        r_end = self.params['r_end']
+        r_start = self.params['r_start']
+        dynamic_role_lambda = self.params['dynamic_role_lambda']
+        current_role = r_end + (r_start - r_end) * (1 - ((t / self.max_iter) ** dynamic_role_lambda))
+        return current_role
+
+    def thermal_attraction(self, f_worst, f_current, f_best, t, c_pos, c_best_pos):
+        epsilon = self.params['epsilon']
+        g_0 = self.params['g_0']
+        alpha_gsa = self.params['alpha_gsa']
+        m = (f_worst, f_current) / (f_worst - f_best + epsilon)
+        M = m / sum(m)
+        # calculate adaptive attraction coefficient
+        G = g_0 * np.exp(-alpha_gsa * t)/self.max_iter
+        # calculate euclidean distance
+        R = np.linalg.norm(c_pos - c_best_pos)
+        # calculate the acceleration
+        acceleration = G * M[0] * (c_best_pos - c_pos) / (R + epsilon)
+        # calculate velocity of each sparrow
+        velocity = np.random.rand() * velocity + acceleration
+        # position update
+        att_position = c_pos + velocity
+        return att_position
+
     def run(self):
         list_fitness = []
         stagnate_count = 0
@@ -125,7 +138,7 @@ class ssapm():
             # print(f"previous best in loop: {prev_best_fitness:.4e}  ")
             if current_best >= prev_best_fitness:
                 stagnate_count += 1
-                print("Stagnate count: ", stagnate_count)
+                # print("Stagnate count: ", stagnate_count)
             else:
                 stagnate_count = 0
                 prev_best_fitness = current_best
@@ -162,9 +175,9 @@ class ssapm():
                 # print("Previous best: ", prev_best_fitness)
                 self.params['flag_stagnate'] = True
 
-            # r_current = self.params['r_start']
             # Adaptive role allocation
-            r_current = self.params['r_end'] + (self.params['r_start'] - self.params['r_end']) * (1 - ((t / self.max_iter) ** self.params['dynamic_role_lambda']))
+            # r_current = self.params['r_start']
+            r_current = self.adaptive_role(t)
             producer_count = int(r_current * self.n)
             scrounger_count = self.n - producer_count
             sorted_indices = np.argsort(list_fitness)
@@ -174,10 +187,11 @@ class ssapm():
 
             fitness_best = list_fitness[0]
             fitness_worst = list_fitness[-1]
+            fitness_current = list_fitness[scrounger_count]
 
-            m = (fitness_worst - list_fitness) / (fitness_worst - fitness_best + self.params['epsilon'])
-            M = m / np.sum(m)
-            g = self.params['g_0'] * np.exp(-self.params['alpha_gsa'] * t / self.max_iter)
+            # m = (fitness_worst - list_fitness) / (fitness_worst - fitness_best + self.params['epsilon'])
+            # M = m / np.sum(m)
+            # g = self.params['g_0'] * np.exp(-self.params['alpha_gsa'] * t / self.max_iter)
             temperature_current = self.params['t_0'] * self.params['alpha_sa'] ** t
             mean_pos = np.mean(current_pos, axis=0)
             diagonal_length = np.sqrt(((self.ub - self.lb) ** 2) * self.dim)
@@ -207,17 +221,24 @@ class ssapm():
                     current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                     list_fitness[i] = self.obj_func(current_pos[i])
 
-                    if list_fitness[i] < prev_best_fitness:
-                        prev_best_fitness = list_fitness[i]
-                        prev_best_pos = current_pos[i].copy()
+                    # if list_fitness[i] < prev_best_fitness:
+                    #     prev_best_fitness = list_fitness[i]
+                    #     prev_best_pos = current_pos[i].copy()
+
+                    if list_fitness[i] < current_best:
+                        current_best = list_fitness[i]
+                        current_best_pos = current_pos[i].copy()
 
                 # scrounger update
                 else:
                     # gravitational attraction
-                    current_best_pos = current_pos[0]
-                    distance_best_to_each = np.linalg.norm(current_best_pos - current_pos[i])
-                    acceleration = g * M[0] * (current_best_pos - current_pos[i]) / (distance_best_to_each + self.params['epsilon'])
-                    fitness_temp = current_pos[i] + acceleration
+                    # current_best_pos = current_pos[0]
+                    # print(f"current_best_pos: {current_best_pos}")
+                    # distance_best_to_each = np.linalg.norm(current_best_pos - current_pos[i])
+                    # acceleration = g * M[0] * (current_best_pos - current_pos[i]) / (distance_best_to_each + self.params['epsilon'])
+                    # fitness_temp = current_pos[i] + acceleration
+                    fitness_temp = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos)
+
                     # repulsion
                     distance_temp_best_fitness = np.linalg.norm(fitness_temp - current_best_pos)
 
@@ -244,17 +265,27 @@ class ssapm():
                 current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                 list_fitness[i] = self.obj_func(current_pos[i])
 
-                if list_fitness[i] < prev_best_fitness:
-                    prev_best_fitness = list_fitness[i]
-                    prev_best_pos = current_pos[i].copy()
+                # if list_fitness[i] < prev_best_fitness:
+                #     prev_best_fitness = list_fitness[i]
+                #     prev_best_pos = current_pos[i].copy()
 
-            prev_best_fitness, prev_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+                if list_fitness[i] < current_best:
+                    current_best = list_fitness[i]
+                    current_best_pos = current_pos[i].copy()
+
+            current_best, prev_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            # prev_best_fitness, prev_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
             # current_best = prev_best_fitness
 
-            convergence_curve.append(prev_best_fitness)
+            # convergence_curve.append(prev_best_fitness)
+            convergence_curve.append(current_best)
 
         # print(f"prev_best_fitness: {prev_best_fitness:.4e}")
         # print(f"convergence_curve: {convergence_curve}")
         # print(f"prev_best_pos: {prev_best_pos}")
-        return prev_best_fitness, prev_best_pos, convergence_curve
+
+        # print(f"current_best at the bottom: {current_best:.4e}")
+
+        # return prev_best_fitness, prev_best_pos, convergence_curve
+        return current_best, current_best_pos, convergence_curve

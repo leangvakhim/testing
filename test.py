@@ -12,7 +12,7 @@ print("2. Benchmark testing (CEC 2017/2020/2022)")
 val = int(input("Enter opt: "))
 
 params = {
-    'tau_stagnate': 21,
+    'tau_stagnate': 100,
     'flag_stagnate': False,
 
     # levy-flight
@@ -69,12 +69,13 @@ if val == 1:
 elif val == 2:
     print("Benchmark testing")
     times = 1
-    lb = -30
-    ub = 30
-    pop_size = 10
+    lb = -100
+    ub = 100
     dim = 30
-    max_iter = 20
+    pop_size = 100
+    max_iter = 1000
     list_val = []
+    func_name = "F1_function"
 
     # CEC 2017 (F1 - F30)
     # funcs = opfunu.cec_based.cec2017.CEC2017(ndim=dim)
@@ -120,7 +121,7 @@ elif val == 2:
     #     print(f"F{f_id:<4} | {mean_val:.4e} | {std_val:4e} | {best_val:4e} | {worst_val:4e}")
 
     for _ in range(times):
-        testing = ssapm(lb, ub, dim, pop_size, max_iter, params, "F5_function")
+        testing = ssapm(lb, ub, dim, pop_size, max_iter, params, func_name)
         best_fitness, best_pos, convergence_curve = testing.run()
         list_val.append(best_fitness)
     mean_val = np.mean(list_val)
