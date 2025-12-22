@@ -84,12 +84,14 @@ class ssapm():
 
             batch_fitness_values = np.array(batch_fitness_values)
             batch_spark_positions = np.array(batch_spark_positions)
+            fitness_best_spark_idx = np.argmin(batch_fitness_values)
 
-            fitness_best_spark = np.argmin(batch_fitness_values)
+            best_spark_fitness = batch_fitness_values[fitness_best_spark_idx]
+            best_spark_pos = batch_spark_positions[fitness_best_spark_idx]
 
-            if fitness_best_spark < c_fitness[i]:
-                c_pos[i] = batch_spark_positions[fitness_best_spark]
-                c_fitness[i] = batch_fitness_values[fitness_best_spark]
+            if best_spark_fitness < c_fitness[i]:
+                c_pos[i] = best_spark_pos
+                c_fitness[i] = best_spark_fitness
 
             # print(f"candidate fitness {i}-{k}: {candidate_fitness}")
             # print(f"fitness best spark {i}-{k}: {fitness_best_spark}")
@@ -109,7 +111,11 @@ class ssapm():
             #         prev_best_fitness = local_best_spark_fitness
             #         prev_best_pos = local_best_spark_pos.copy()
 
-        return c_pos, c_fitness
+        c_best_idx = np.argmin(c_fitness)
+        c_best_pos = c_pos[c_best_idx]
+        c_best_fitness = c_fitness[c_best_idx]
+
+        return c_best_pos, c_best_fitness
 
     def adaptive_role(self, t):
         r_end = self.params['r_end']
