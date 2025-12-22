@@ -40,51 +40,76 @@ class ssapm():
         new_pos = self.lb + z * (self.ub - self.lb)
         return new_pos
 
-    def flare_burst_search(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
-        num_danger = int(self.params['danger_p'] * self.n)
+    def flare_burst_search(self, c_pos, c_fitness):
+        danger_sparrows = self.params['danger_p']
+        s_min = self.params['s_min']
+        s_max = self.params['s_max']
+        a_min = self.params['a_min']
+        a_max = self.params['a_max']
+        epsilon = self.params['epsilon']
+        batch_fitness_values = []
+        batch_spark_positions = []
+        num_danger = int(danger_sparrows * self.n)
         danger_indices = np.arange(self.n - num_danger, self.n)
         # danger_indices = np.random.choice(self.n, num_danger, replace=False)
         # print(f"list fitness: {list_fitness}")
         # print(f"danger indices: {danger_indices}")
         # print(f"danger values: {list_fitness[danger_indices]}")
 
-        fitness_best_danger = list_fitness[0]
-        fitness_worst_danger = list_fitness[-1]
+        fitness_best_danger = c_fitness[0]
+        fitness_worst_danger = c_fitness[-1]
 
         for i in danger_indices:
             # Calculate Spark Parameters (Si and Ai)
-            normalized_fitness = (list_fitness[i] - fitness_best_danger) / (fitness_worst_danger - fitness_best_danger + self.params['epsilon'])
+            normalized_fitness = (c_fitness[i] - fitness_best_danger) / (fitness_worst_danger - fitness_best_danger + epsilon)
+            # print(f"normalized fitness {i}: {normalized_fitness}")
+            spark_count = int(s_min + np.round((s_max - s_min) * normalized_fitness))
+            explosion_amplitude = a_min + (a_max - a_min) * normalized_fitness
 
-            spark_count = int(self.params['s_min'] + np.round((self.params['s_max'] - self.params['s_min']) * normalized_fitness))
-            explosion_amplitude = self.params['a_min'] + (self.params['a_max'] - self.params['a_min']) * normalized_fitness
+            # local_best_spark_fitness = np.inf
+            # local_best_spark_pos = None
 
-            local_best_spark_fitness = np.inf
-            local_best_spark_pos = None
 
             # Generate Sparks (The Burst)
             for k in range(spark_count):
                 # Random Direction Vector (-1 to 1)
                 random_vector = np.random.uniform(-1, 1, self.dim)
 
-                candidate_pos = current_pos[i] + explosion_amplitude * random_vector
-                candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
+                candidate_pos = c_pos[i] + explosion_amplitude * random_vector
+                # candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
                 candidate_fitness = self.obj_func(candidate_pos)
 
-                if candidate_fitness < local_best_spark_fitness:
-                    local_best_spark_fitness = candidate_fitness
-                    local_best_spark_pos = candidate_pos.copy()
+                batch_fitness_values.append(candidate_fitness)
+                batch_spark_positions.append(candidate_pos)
 
-            # Greedy Selection (Update if Better)
-            if local_best_spark_fitness < list_fitness[i]:
-                current_pos[i] = local_best_spark_pos
-                list_fitness[i] = local_best_spark_fitness
+            batch_fitness_values = np.array(batch_fitness_values)
+            batch_spark_positions = np.array(batch_spark_positions)
 
-                # Update Global Best if found
-                if local_best_spark_fitness < prev_best_fitness:
-                    prev_best_fitness = local_best_spark_fitness
-                    prev_best_pos = local_best_spark_pos.copy()
+            fitness_best_spark = np.argmin(batch_fitness_values)
 
-        return prev_best_fitness, prev_best_pos
+            if fitness_best_spark < c_fitness[i]:
+                c_pos[i] = batch_spark_positions[fitness_best_spark]
+                c_fitness[i] = batch_fitness_values[fitness_best_spark]
+
+            # print(f"candidate fitness {i}-{k}: {candidate_fitness}")
+            # print(f"fitness best spark {i}-{k}: {fitness_best_spark}")
+
+
+            #     if candidate_fitness < local_best_spark_fitness:
+            #         local_best_spark_fitness = candidate_fitness
+            #         local_best_spark_pos = candidate_pos.copy()
+
+            # # Greedy Selection (Update if Better)
+            # if local_best_spark_fitness < list_fitness[i]:
+            #     current_pos[i] = local_best_spark_pos
+            #     list_fitness[i] = local_best_spark_fitness
+
+            #     # Update Global Best if found
+            #     if local_best_spark_fitness < prev_best_fitness:
+            #         prev_best_fitness = local_best_spark_fitness
+            #         prev_best_pos = local_best_spark_pos.copy()
+
+        return c_pos, c_fitness
 
     def adaptive_role(self, t):
         r_end = self.params['r_end']
@@ -97,19 +122,22 @@ class ssapm():
         epsilon = self.params['epsilon']
         g_0 = self.params['g_0']
         alpha_gsa = self.params['alpha_gsa']
-        m = (f_worst, f_current) / (f_worst - f_best + epsilon)
-        M = m / sum(m)
+        # m_val = (f_worst - f_current) / (f_worst - f_best + epsilon)
+        # m = np.array([m_val])
+        # M = m / sum(m)
+        # print(f"M[0] is: {M[0]}")
         # calculate adaptive attraction coefficient
         G = g_0 * np.exp(-alpha_gsa * t)/self.max_iter
         # calculate euclidean distance
         R = np.linalg.norm(c_pos - c_best_pos)
         # calculate the acceleration
-        acceleration = G * M[0] * (c_best_pos - c_pos) / (R + epsilon)
+        # acceleration = G * M[0] * (c_best_pos - c_pos) / (R + epsilon)
+        acceleration = G * (c_best_pos - c_pos) / (R + epsilon)
         # calculate velocity of each sparrow
         velocity = np.random.rand() * c_velocities + acceleration
         # position update
         att_position = c_pos + velocity
-        return att_position
+        return att_position, velocity
 
     def producer_update(self, c_pos, i):
         r_2 = np.random.rand()
@@ -171,12 +199,8 @@ class ssapm():
             current_best_index = np.argmin(list_fitness)
             current_worst_index = np.argmax(list_fitness)
 
-            # print(f"list_fitness: {list_fitness}")
-            # print(f"current best: {current_best:.4e}")
-            # print(f"previous best in loop: {prev_best_fitness:.4e}  ")
             if current_best >= prev_best_fitness:
                 stagnate_count += 1
-                # print("Stagnate count: ", stagnate_count)
             else:
                 stagnate_count = 0
                 prev_best_fitness = current_best
@@ -209,8 +233,6 @@ class ssapm():
                 # print(f"{t} Ashes Rebirth: Old Worst {old_fitness_worst:.4f} -> New Random {new_fitness_ashes:.4f}")
 
                 stagnate_count = 0
-                # print("Stagnate count reset")
-                # print("Previous best: ", prev_best_fitness)
                 self.params['flag_stagnate'] = True
 
             # Adaptive role allocation
@@ -261,7 +283,7 @@ class ssapm():
                 # scrounger update
                 else:
                     # gravitational attraction
-                    att_pos_from_gsa = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
+                    att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
 
                     # repulsion
                     rep_pos_from_sa = self.thermal_repulsion(current_pos[i], att_pos_from_gsa, current_best_pos, r_heat, t_current)
@@ -274,13 +296,10 @@ class ssapm():
                     current_best = list_fitness[i]
                     current_best_pos = current_pos[i].copy()
 
-            current_best, prev_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
-            # prev_best_fitness, prev_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            current_best_pos, current_best_fitness = self.flare_burst_search(current_pos, list_fitness)
+            # current_best, prev_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
-            # current_best = prev_best_fitness
-
-            # convergence_curve.append(prev_best_fitness)
-            convergence_curve.append(current_best)
+            convergence_curve.append(current_best_fitness)
 
         # print(f"prev_best_fitness: {prev_best_fitness:.4e}")
         # print(f"convergence_curve: {convergence_curve}")
