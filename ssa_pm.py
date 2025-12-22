@@ -125,6 +125,45 @@ class ssapm():
 
         return c_pos
 
+    def thermal_repulsion(self, c_pos, att_pos, c_best_pos, t):
+        heat_lambda = self.params['heat_lambda']
+        alpha_cool = self.params['alpha_sa']
+        r_base = self.params['r_base']
+        t_0 = self.params['t_0']
+        # calculate mean of population
+        m_pos = np.mean(c_pos, axis=0)
+        # calculate diagonal length
+        d_length = np.sqrt(((self.ub - self.lb) ** 2) * self.dim)
+        # calculate distance from mean
+        d_from_m = np.sqrt(np.sum((c_pos - m_pos) ** 2, axis=1))
+        # calculate total sum of distances
+        total_sum_d = np.sum(d_from_m)
+        # calculate diversity
+        diversity = total_sum_d / (self.n * d_length)
+        # calculate heat radius
+        r_heat = r_base * ((1 - diversity) ** heat_lambda)
+        # define the cooling schedule
+        t_current = t_0 * (alpha_cool ** t)
+        # calculate the fitness differences when scrounger has entered the heat radius
+        fitness_att = self.obj_func(att_pos)
+        fitness_best = self.obj_func(c_best_pos)
+        if r_heat > np.linalg.norm(att_pos - c_best_pos):
+            delta_fitness = fitness_att - fitness_best
+            # calculate the probability of being repelled
+            if delta_fitness >= 0:
+                p_repel = 1
+            else:
+                p_repel = np.exp(-delta_fitness / t_current)
+
+            # when the sparrow is burned and repelled
+            if np.random.rand() < p_repel:
+                random_kick = np.random.rand(self.dim)
+                c_pos = att_pos - random_kick * (att_pos - c_pos)
+            else:
+                c_pos = att_pos
+
+        return c_pos
+
     def run(self):
         list_fitness = []
         stagnate_count = 0
@@ -204,13 +243,16 @@ class ssapm():
             fitness_worst = list_fitness[-1]
             fitness_current = list_fitness[scrounger_count]
 
-            temperature_current = self.params['t_0'] * self.params['alpha_sa'] ** t
-            mean_pos = np.mean(current_pos, axis=0)
-            diagonal_length = np.sqrt(((self.ub - self.lb) ** 2) * self.dim)
-            dist_from_mean = np.sqrt(np.sum((current_pos - mean_pos) ** 2, axis=1))
-            total_sum_distances = np.sum(dist_from_mean)
-            diversity = total_sum_distances / (self.n * diagonal_length)
-            r_heat = self.params['r_base'] * ((1 - diversity) ** self.params['heat_lambda'])
+            # temperature_current = self.params['t_0'] * self.params['alpha_sa'] ** t
+            # mean_pos = np.mean(current_pos, axis=0)
+            # mean_pos1 = np.mean(current_pos, axis=1)
+            # print(f"mean_pos is: {mean_pos}")
+            # print(f"mean_pos1 is: {mean_pos1}")
+            # diagonal_length = np.sqrt(((self.ub - self.lb) ** 2) * self.dim)
+            # dist_from_mean = np.sqrt(np.sum((current_pos - mean_pos) ** 2, axis=1))
+            # total_sum_distances = np.sum(dist_from_mean)
+            # diversity = total_sum_distances / (self.n * diagonal_length)
+            # r_heat = self.params['r_base'] * ((1 - diversity) ** self.params['heat_lambda'])
 
             for i in range(self.n):
                 # producer update
@@ -245,31 +287,32 @@ class ssapm():
                 # scrounger update
                 else:
                     # gravitational attraction
-                    fitness_temp = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
+                    att_pos_from_gsa = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
 
                     # repulsion
-                    distance_temp_best_fitness = np.linalg.norm(fitness_temp - current_best_pos)
+                    rep_pos_from_sa = self.thermal_repulsion(current_pos[i], att_pos_from_gsa, current_best_pos, t)
+                    # distance_temp_best_fitness = np.linalg.norm(att_pos_from_gsa - current_best_pos)
 
-                    if distance_temp_best_fitness >= r_heat:
-                        current_pos[i] = fitness_temp
-                    else:
-                        fitness_new = self.obj_func(fitness_temp)
-                        delta_fitness = fitness_new - list_fitness[0]
+                    # if distance_temp_best_fitness >= r_heat:
+                    #     current_pos[i] = att_pos_from_gsa
+                    # else:
+                    #     fitness_new = self.obj_func(att_pos_from_gsa)
+                    #     delta_fitness = fitness_new - list_fitness[0]
 
-                        # if delta_fitness >= 0:
-                        if delta_fitness > 0:
-                            # repel = 1 - np.exp(-delta_fitness / (temperature_current + self.params['epsilon']))
-                            repel = 1
-                        else:
-                            # repel = 0
-                            repel = np.exp(delta_fitness / temperature_current)
+                    #     # if delta_fitness >= 0:
+                    #     if delta_fitness > 0:
+                    #         # repel = 1 - np.exp(-delta_fitness / (temperature_current + self.params['epsilon']))
+                    #         repel = 1
+                    #     else:
+                    #         # repel = 0
+                    #         repel = np.exp(delta_fitness / temperature_current)
 
-                        if repel > np.random.rand():
-                            random_kick = np.random.rand(self.dim)
-                            current_pos[i] = fitness_temp - random_kick * (fitness_temp - current_pos[i])
-                        else:
-                            current_pos[i] = fitness_temp
-
+                    #     if repel > np.random.rand():
+                    #         random_kick = np.random.rand(self.dim)
+                    #         current_pos[i] = fitness_temp - random_kick * (fitness_temp - current_pos[i])
+                    #     else:
+                    #         current_pos[i] = fitness_temp
+                    current_pos[i] = rep_pos_from_sa
                 current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                 list_fitness[i] = self.obj_func(current_pos[i])
 
