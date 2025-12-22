@@ -131,11 +131,11 @@ class ssapm():
         r_base = self.params['r_base']
         t_0 = self.params['t_0']
         # calculate mean of population
-        m_pos = np.mean(c_pos, axis=0)
+        m_pos = np.mean(c_pos)
         # calculate diagonal length
         d_length = np.sqrt(((self.ub - self.lb) ** 2) * self.dim)
         # calculate distance from mean
-        d_from_m = np.sqrt(np.sum((c_pos - m_pos) ** 2, axis=1))
+        d_from_m = np.sqrt(np.sum((c_pos - m_pos) ** 2))
         # calculate total sum of distances
         total_sum_d = np.sum(d_from_m)
         # calculate diversity
