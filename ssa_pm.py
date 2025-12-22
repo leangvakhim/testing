@@ -47,21 +47,25 @@ class ssapm():
         a_min = self.params['a_min']
         a_max = self.params['a_max']
         epsilon = self.params['epsilon']
-        batch_fitness_values = []
-        batch_spark_positions = []
         num_danger = int(danger_sparrows * self.n)
         danger_indices = np.arange(self.n - num_danger, self.n)
+        # print(f"c_fitness: {c_fitness}")
+        # print(f"c_pos: {c_pos}")
         # danger_indices = np.random.choice(self.n, num_danger, replace=False)
         # print(f"list fitness: {list_fitness}")
         # print(f"danger indices: {danger_indices}")
         # print(f"danger values: {list_fitness[danger_indices]}")
 
-        fitness_best_danger = c_fitness[0]
-        fitness_worst_danger = c_fitness[-1]
+        fitness_best_danger = np.min(c_fitness)
+        fitness_worst_danger = np.max(c_fitness)
 
         for i in danger_indices:
+            batch_fitness_values = []
+            batch_spark_positions = []
             # Calculate Spark Parameters (Si and Ai)
             normalized_fitness = (c_fitness[i] - fitness_best_danger) / (fitness_worst_danger - fitness_best_danger + epsilon)
+            # val = (c_fitness[i] - fitness_best_danger) / (fitness_worst_danger - fitness_best_danger + epsilon)
+            # normalized_fitness = np.clip(val, 0, 1)
             # print(f"normalized fitness {i}: {normalized_fitness}")
             spark_count = int(s_min + np.round((s_max - s_min) * normalized_fitness))
             explosion_amplitude = a_min + (a_max - a_min) * normalized_fitness
@@ -81,6 +85,8 @@ class ssapm():
 
                 batch_fitness_values.append(candidate_fitness)
                 batch_spark_positions.append(candidate_pos)
+                # print(f"batch fitness values: {batch_fitness_values}")
+                # print(f"batch spark positions: {batch_spark_positions}")
 
             batch_fitness_values = np.array(batch_fitness_values)
             batch_spark_positions = np.array(batch_spark_positions)
