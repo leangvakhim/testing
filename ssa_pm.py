@@ -97,12 +97,16 @@ class ssapm():
         num_danger = int(self.params['danger_p'] * self.n)
         danger_indices = np.arange(self.n - num_danger, self.n)
 
-        fitness_best_danger = list_fitness[0]
+        fitness_best_danger = list_fitness[self.n - num_danger]
         fitness_worst_danger = list_fitness[-1]
 
         for i in danger_indices:
             # Calculate Spark Parameters (Si and Ai)
+            # if fitness_best_danger != fitness_worst_danger:
             normalized_fitness = (list_fitness[i] - fitness_best_danger) / (fitness_worst_danger - fitness_best_danger + epsilon)
+            # else:
+            #     normalized_fitness = 0
+            #     print("have normalized fitness = 0")
 
             spark_count = int(s_min + np.round((s_max - s_min) * normalized_fitness))
             explosion_amplitude = a_min + (a_max - a_min) * normalized_fitness
@@ -118,12 +122,16 @@ class ssapm():
                 candidate_pos = current_pos[i] + explosion_amplitude * random_vector
                 candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
                 candidate_fitness = self.obj_func(candidate_pos)
-                best_candidate_fitness = np.min(candidate_fitness)
-                best_candidate_pos = candidate_pos[np.argmin(candidate_fitness)]
+                # best_candidate_fitness = np.min(candidate_fitness)
+                # best_candidate_pos = candidate_pos[np.argmin(candidate_fitness)]
 
-                if best_candidate_fitness < local_best_spark_fitness:
-                    local_best_spark_fitness = best_candidate_fitness
-                    local_best_spark_pos = best_candidate_pos.copy()
+                # if best_candidate_fitness < local_best_spark_fitness:
+                #     local_best_spark_fitness = best_candidate_fitness
+                #     local_best_spark_pos = best_candidate_pos.copy()
+
+                if candidate_fitness < local_best_spark_fitness:
+                    local_best_spark_fitness = candidate_fitness
+                    local_best_spark_pos = candidate_pos.copy()
 
             if local_best_spark_fitness < list_fitness[i]:
                 list_fitness[i] = local_best_spark_fitness

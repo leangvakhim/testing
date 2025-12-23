@@ -68,7 +68,7 @@ if val == 1:
     # print(x_val)
 elif val == 2:
     print("Benchmark testing")
-    times = 5
+    times = 30
     lb = -30
     ub = 30
     dim = 30
