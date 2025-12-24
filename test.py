@@ -52,28 +52,32 @@ if val == 1:
     max_iter = 500
     lb = 0
     ub = 50
-    dim = 2
     num_sensor = 20
-    w = 50
-    h = 50
-    sensing_radius = 10
-    r_error = 5
-    testing = ssapm(lb, ub, dim, pop_size, max_iter, params)
+    dim = num_sensor * 2
+    params['w'] = 50
+    params['h'] = 50
+    params['sensing_radius'] = 10
+    params['r_error'] = 5
+    params['num_nodes'] = num_sensor
+    func_name='coverage_optimization'
+    # x = lb + np.random.rand(num_sensor, dim) * (ub - lb)
+    testing = ssapm(lb, ub, dim, num_sensor, max_iter, params, func_name)
     # x_val = testing.initialize()
     best_fitness, best_pos, convergence_curve = testing.run()
-    # print(f"Best fitness: {best_fitness:.4e}")
+    print(f"Best fitness: {1 - best_fitness:.4e}")
     # print(f"Best pos: {best_pos}")
-    # cov = coverage(w, h, num_sensor, sensing_radius, r_error, best_pos)
+    # cov = coverage(w, h, num_sensor, sensing_radius, r_error, x)
+    # cov.calculate_probabilistics_coverage()
     # cov.plot_coverage()
     # print(x_val)
 elif val == 2:
     print("Benchmark testing")
-    times = 30
+    times = 10
     lb = -30
     ub = 30
     dim = 30
-    pop_size = 100
-    max_iter = 1000
+    pop_size = 50
+    max_iter = 500
     list_val = []
     func_name = "F5_function"
 
