@@ -70,7 +70,7 @@ class coverage():
 
         cov = np.mean(p_total)
 
-        coverage = (cov * self.w * self.h) / (self.num_nodes * (self.sensing_radius ** np.pi))
+        # coverage = (cov * self.w * self.h) / (self.num_nodes * (self.sensing_radius ** np.pi))
 
         # print(f"diff shape is: {diff.shape}")
         # print(f"dists shape is: {dists.shape}")

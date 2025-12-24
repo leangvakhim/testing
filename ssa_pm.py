@@ -223,7 +223,7 @@ class ssapm():
                 # print(f"{t} Ashes Rebirth: Old Worst {old_fitness_worst:.4f} -> New Random {new_fitness_ashes:.4f}")
 
                 stagnate_count = 0
-                print(f"Reset at {t}")
+                # print(f"Reset at {t}")
                 self.params['flag_stagnate'] = True
 
             # Adaptive role allocation
