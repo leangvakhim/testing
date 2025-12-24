@@ -75,13 +75,13 @@ class coverage():
 
         return cov
 
-    def plot_coverage(self):
+    def plot_coverage(self, best_fitness):
         fig, ax = plt.subplots(figsize=(6,6))
 
         ax.set_xlim(0, self.w)
         ax.set_ylim(0, self.h)
         ax.set_aspect('equal')
-        ax.set_title('Coverage')
+        ax.set_title(f'Coverage with percentage: {1 - best_fitness * 100:.2f}%')
         ax.set_xlabel('X (m)')
         ax.set_ylabel('Y (m)')
         for node in self.nodes_pos:

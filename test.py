@@ -49,7 +49,7 @@ params = {
 if val == 1:
     print("Coverage testing")
     pop_size = 20
-    max_iter = 500
+    max_iter = 100
     lb = 0
     ub = 50
     num_sensor = 20
@@ -64,11 +64,11 @@ if val == 1:
     testing = ssapm(lb, ub, dim, num_sensor, max_iter, params, func_name)
     # x_val = testing.initialize()
     best_fitness, best_pos, convergence_curve = testing.run()
-    print(f"Best fitness: {1 - best_fitness:.4e}")
+    # print(f"Best fitness: {1 - best_fitness}")
     # print(f"Best pos: {best_pos}")
-    # cov = coverage(w, h, num_sensor, sensing_radius, r_error, x)
+    cov = coverage(params['w'], params['h'], num_sensor, params['sensing_radius'], params['r_error'], best_pos)
     # cov.calculate_probabilistics_coverage()
-    # cov.plot_coverage()
+    cov.plot_coverage(best_fitness)
     # print(x_val)
 elif val == 2:
     print("Benchmark testing")

@@ -177,6 +177,8 @@ class ssapm():
         prev_best_fitness = np.min(list_fitness)
         start_best_index = np.argmin(list_fitness)
         prev_best_pos = current_pos[start_best_index].copy()
+
+        current_best_pos = prev_best_pos.copy()
         # print(f"List fitness: {list_fitness}")
         # print(f"previous best before loop: {prev_best_fitness:.4e}  ")
 
