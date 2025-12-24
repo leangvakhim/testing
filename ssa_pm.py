@@ -110,7 +110,7 @@ class ssapm():
         alpha_gsa = self.params['alpha_gsa']
         m_val = (f_worst - f_current) / (f_worst - f_best + epsilon)
         m = np.array([m_val])
-        M = m / sum(m)
+        M = m / (sum(m) + epsilon)
         # print(f"M[0] is: {M[0]}")
         # calculate adaptive attraction coefficient
         G = g_0 * np.exp(-alpha_gsa * t)/self.max_iter

@@ -48,7 +48,7 @@ params = {
 
 if val == 1:
     print("Coverage testing")
-    pop_size = 20
+    pop_size = 50
     max_iter = 100
     lb = 0
     ub = 50
@@ -56,17 +56,18 @@ if val == 1:
     dim = num_sensor * 2
     params['w'] = 50
     params['h'] = 50
-    params['sensing_radius'] = 10
-    params['r_error'] = 5
+    params['sensing_radius'] = 7
+    params['r_error'] = 0.5
     params['num_nodes'] = num_sensor
     func_name='coverage_optimization'
     # x = lb + np.random.rand(num_sensor, dim) * (ub - lb)
-    testing = ssapm(lb, ub, dim, num_sensor, max_iter, params, func_name)
+    testing = ssapm(lb, ub, dim, pop_size, max_iter, params, func_name)
     # x_val = testing.initialize()
     best_fitness, best_pos, convergence_curve = testing.run()
+    best_pos_reshaped = best_pos.reshape(num_sensor, 2)
     # print(f"Best fitness: {1 - best_fitness}")
     # print(f"Best pos: {best_pos}")
-    cov = coverage(params['w'], params['h'], num_sensor, params['sensing_radius'], params['r_error'], best_pos)
+    cov = coverage(params['w'], params['h'], num_sensor, params['sensing_radius'], params['r_error'], best_pos_reshaped)
     # cov.calculate_probabilistics_coverage()
     cov.plot_coverage(best_fitness)
     # print(x_val)

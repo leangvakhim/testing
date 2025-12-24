@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 # from ssa_pm import ssapm
 
 class coverage():
@@ -81,20 +83,43 @@ class coverage():
         ax.set_xlim(0, self.w)
         ax.set_ylim(0, self.h)
         ax.set_aspect('equal')
-        ax.set_title(f'Coverage with percentage: {1 - best_fitness * 100:.2f}%')
+        ax.set_title(f'SSA-PM Coverage with percentage: {(1 - best_fitness) * 100:.2f}%')
         ax.set_xlabel('X (m)')
         ax.set_ylabel('Y (m)')
+
+        r_certain = self.sensing_radius - self.r_error
+        r_max = self.sensing_radius + self.r_error
+
         for node in self.nodes_pos:
-            circle = plt.Circle(node, self.sensing_radius, color='green', fill=True, alpha=0.1)
-            ax.add_artist(circle)
+            # 1. Plot Max Range (r_c + r_e)
+            circle_max = plt.Circle(node, r_max, color='palegreen', fill=True, alpha=0.2, linewidth=0)
+            ax.add_artist(circle_max)
+
+            # 2. Plot Certainty Range (r_c - r_e)
+            circle_certain = plt.Circle(node, r_certain, color='forestgreen', fill=True, alpha=0.3, linewidth=0)
+            ax.add_artist(circle_certain)
+
+            # 3. Plot Nominal Radius (r_c)
+            circle_nominal = plt.Circle(node, self.sensing_radius, color='black', fill=False, linestyle='--', alpha=0.3)
+            ax.add_artist(circle_nominal)
+
+            # Plot the sensor node center
             ax.plot(node[0], node[1], 'r.', markersize=5)
 
+        legend_elements = [
+            Patch(facecolor='forestgreen', edgecolor='none', alpha=0.3, label='Certainty Range'),
+            Patch(facecolor='palegreen', edgecolor='none', alpha=0.2, label='Uncertain Range'),
+            Line2D([0], [0], color='black', linestyle='--', alpha=0.5, label='Nominal Radius'),
+            Line2D([0], [0], marker='.', color='w', label='Sensor Node', markerfacecolor='r', markersize=10),
+        ]
+
+        # ax.legend(handles=legend_elements, loc='upper right', framealpha=0.9)
+
         ax.grid(True, linestyle='--')
-        # ax.legend()
         all_x = [s[0] for s in self.nodes_pos]
         all_y = [s[1] for s in self.nodes_pos]
-        ax.set_xlim(min(all_x) - self.sensing_radius, max(all_x) + self.sensing_radius)
-        ax.set_ylim(min(all_y) - self.sensing_radius, max(all_y) + self.sensing_radius)
+        ax.set_xlim(min(all_x) - r_max, max(all_x) + r_max)
+        ax.set_ylim(min(all_y) - r_max, max(all_y) + r_max)
 
         plt.show()
 
