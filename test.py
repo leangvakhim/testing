@@ -12,7 +12,7 @@ print("2. Benchmark testing (CEC 2017/2020/2022)")
 val = int(input("Enter opt: "))
 
 params = {
-    'tau_stagnate': 100,
+    'tau_stagnate': 101,
     'flag_stagnate': False,
 
     # levy-flight
@@ -74,13 +74,13 @@ if val == 1:
 elif val == 2:
     print("Benchmark testing")
     times = 10
-    lb = -30
-    ub = 30
+    lb = -100
+    ub = 100
     dim = 30
     pop_size = 50
     max_iter = 500
     list_val = []
-    func_name = "F5_function"
+    func_name = "F1_function"
 
     # CEC 2017 (F1 - F30)
     # funcs = opfunu.cec_based.cec2017.CEC2017(ndim=dim)

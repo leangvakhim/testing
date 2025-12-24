@@ -167,6 +167,7 @@ class ssapm():
         r_base = self.params['r_base']
         t_0 = self.params['t_0']
         convergence_curve = []
+        percentage_to_reset = self.params['tau_stagnate'] * self.max_iter / 100
         current_pos = self.initialize()
         velocities = np.zeros((self.n, self.dim))
         for i in range(0, self.n):
@@ -196,7 +197,8 @@ class ssapm():
 
             self.params['flag_stagnate'] = False
 
-            if stagnate_count >= self.params['tau_stagnate']:
+            # if stagnate_count >= self.params['tau_stagnate']:
+            if stagnate_count >= percentage_to_reset:
 
                 old_fitness_best = list_fitness[current_best_index]
 
@@ -221,6 +223,7 @@ class ssapm():
                 # print(f"{t} Ashes Rebirth: Old Worst {old_fitness_worst:.4f} -> New Random {new_fitness_ashes:.4f}")
 
                 stagnate_count = 0
+                print(f"Reset at {t}")
                 self.params['flag_stagnate'] = True
 
             # Adaptive role allocation
