@@ -161,13 +161,13 @@ class ssapm():
 
     def run(self):
         list_fitness = []
-        stagnate_count = 0
+        # stagnate_count = 0
         heat_lambda = self.params['heat_lambda']
         alpha_cool = self.params['alpha_sa']
         r_base = self.params['r_base']
         t_0 = self.params['t_0']
         convergence_curve = []
-        percentage_to_reset = self.params['tau_stagnate'] * self.max_iter / 100
+        # percentage_to_reset = self.params['tau_stagnate'] * self.max_iter / 100
         current_pos = self.initialize()
         velocities = np.zeros((self.n, self.dim))
         for i in range(0, self.n):
@@ -188,43 +188,44 @@ class ssapm():
             current_best_index = np.argmin(list_fitness)
             current_worst_index = np.argmax(list_fitness)
 
-            if current_best >= prev_best_fitness:
-                stagnate_count += 1
-            else:
-                stagnate_count = 0
+            if current_best <= prev_best_fitness:
+                # stagnate_count += 1
+                # continue
+            # else:
+                # stagnate_count = 0
                 prev_best_fitness = current_best
                 current_best_pos = current_pos[current_best_index].copy()
 
-            self.params['flag_stagnate'] = False
+            # self.params['flag_stagnate'] = False
 
-            # if stagnate_count >= self.params['tau_stagnate']:
-            if stagnate_count >= percentage_to_reset:
+            # # if stagnate_count >= self.params['tau_stagnate']:
+            # if stagnate_count >= percentage_to_reset:
 
-                old_fitness_best = list_fitness[current_best_index]
+            #     old_fitness_best = list_fitness[current_best_index]
 
-                # levy flight
-                step_val = self.levy_flight_jump()
-                new_fitness_pos = current_best_pos + step_val * self.params['alpha_levy_flight'] * (self.ub - self.lb)
-                new_fitness = self.obj_func(new_fitness_pos)
+            #     # levy flight
+            #     step_val = self.levy_flight_jump()
+            #     new_fitness_pos = current_best_pos + step_val * self.params['alpha_levy_flight'] * (self.ub - self.lb)
+            #     new_fitness = self.obj_func(new_fitness_pos)
 
-                if new_fitness < old_fitness_best:
-                    current_pos[current_best_index] = new_fitness_pos
-                    list_fitness[current_best_index] = new_fitness
-                    # print(f"{t} Phoenix Jump: Old Best {old_fitness_best:.4f} -> New Best {new_fitness:.4f}")
+            #     if new_fitness < old_fitness_best:
+            #         current_pos[current_best_index] = new_fitness_pos
+            #         list_fitness[current_best_index] = new_fitness
+            #         # print(f"{t} Phoenix Jump: Old Best {old_fitness_best:.4f} -> New Best {new_fitness:.4f}")
 
-                # old_fitness_worst = list_fitness[current_worst_index]
+            #     # old_fitness_worst = list_fitness[current_worst_index]
 
-                # chaotic rebirth
-                new_ashes = self.chaotic_rebirth()
-                current_pos[current_worst_index] = new_ashes
-                new_fitness_ashes = self.obj_func(new_ashes)
-                list_fitness[current_worst_index] = new_fitness_ashes
+            #     # chaotic rebirth
+            #     new_ashes = self.chaotic_rebirth()
+            #     current_pos[current_worst_index] = new_ashes
+            #     new_fitness_ashes = self.obj_func(new_ashes)
+            #     list_fitness[current_worst_index] = new_fitness_ashes
 
-                # print(f"{t} Ashes Rebirth: Old Worst {old_fitness_worst:.4f} -> New Random {new_fitness_ashes:.4f}")
+            #     # print(f"{t} Ashes Rebirth: Old Worst {old_fitness_worst:.4f} -> New Random {new_fitness_ashes:.4f}")
 
-                stagnate_count = 0
-                # print(f"Reset at {t}")
-                self.params['flag_stagnate'] = True
+            #     stagnate_count = 0
+            #     # print(f"Reset at {t}")
+            #     self.params['flag_stagnate'] = True
 
             # Adaptive role allocation
             # r_current = self.params['r_start']
@@ -259,10 +260,12 @@ class ssapm():
                 # producer update
                 if i < producer_count:
                     # check if already jump via Levy Flight
-                    if i == 0 and self.params['flag_stagnate']:
-                        continue
-                    else:
-                        current_pos[i] = self.producer_update(current_pos[i], i)
+                    # if i != 0:
+                    # if i == 0 and self.params['flag_stagnate']:
+                    #     # print("Trigger")
+                    #     continue
+                    # else:
+                    current_pos[i] = self.producer_update(current_pos[i], i)
 
                     current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                     list_fitness[i] = self.obj_func(current_pos[i])

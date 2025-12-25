@@ -12,8 +12,8 @@ print("2. Benchmark testing (CEC 2017/2020/2022)")
 val = int(input("Enter opt: "))
 
 params = {
-    'tau_stagnate': 101,
-    'flag_stagnate': False,
+    # 'tau_stagnate': 101,
+    # 'flag_stagnate': False,
 
     # levy-flight
     'beta_levy_flight': 1.5,
@@ -52,7 +52,7 @@ if val == 1:
     max_iter = 100
     lb = 0
     ub = 50
-    num_sensor = 20
+    num_sensor = 25
     dim = num_sensor * 2
     params['w'] = 50
     params['h'] = 50
