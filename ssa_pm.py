@@ -173,6 +173,10 @@ class ssapm():
         return c_pos
 
     def calculate_virtual_force(self, current_pos_flat):
+
+        if 'num_nodes' not in self.params:
+            return np.zeros_like(current_pos_flat)
+
         num_nodes = self.params['num_nodes']
         Rs = self.params['sensing_radius']
         k_rep = 1000.0
@@ -368,21 +372,21 @@ class ssapm():
                 # scrounger update
                 else:
                     # gravitational attraction
-                    # att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
+                    att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
 
                     # repulsion
-                    # rep_pos_from_sa = self.thermal_repulsion(current_pos[i], att_pos_from_gsa, current_best_pos, r_heat, t_current)
-                    # current_pos[i] = rep_pos_from_sa
+                    rep_pos_from_sa = self.thermal_repulsion(current_pos[i], att_pos_from_gsa, current_best_pos, r_heat, t_current)
+                    current_pos[i] = rep_pos_from_sa
 
                     # Calculate virtual force (repulsion)
-                    v_force = self.calculate_virtual_force(current_pos[i])
+                    # v_force = self.calculate_virtual_force(current_pos[i])
 
-                    # Elastic Attraction to Global Best
-                    elastic_attraction = np.random.rand() * (current_best_pos - current_pos[i])
+                    # # Elastic Attraction to Global Best
+                    # elastic_attraction = np.random.rand() * (current_best_pos - current_pos[i])
 
-                    # Update velocities & Position
-                    velocities[i] = 0.5 * velocities[i] + elastic_attraction + v_force
-                    current_pos[i] = current_pos[i] + velocities[i]
+                    # # Update velocities & Position
+                    # velocities[i] = 0.5 * velocities[i] + elastic_attraction + v_force
+                    # current_pos[i] = current_pos[i] + velocities[i]
 
                 current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                 list_fitness[i] = self.obj_func(current_pos[i])
@@ -391,16 +395,16 @@ class ssapm():
                     current_best = list_fitness[i]
                     current_best_pos = current_pos[i].copy()
 
-            # current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
             # Voronoi Spark (Hole Targeting)
-            spark_pos = self.voronoi_spark(current_best_pos)
-            spark_fitness = self.obj_func(spark_pos)
+            # spark_pos = self.voronoi_spark(current_best_pos)
+            # spark_fitness = self.obj_func(spark_pos)
 
-            if spark_fitness < current_best:
-                current_best = spark_fitness
-                current_best_pos = spark_pos.copy()
-                current_pos[current_best_index] = spark_pos.copy()
+            # if spark_fitness < current_best:
+            #     current_best = spark_fitness
+            #     current_best_pos = spark_pos.copy()
+            #     current_pos[current_best_index] = spark_pos.copy()
 
             convergence_curve.append(current_best)
 

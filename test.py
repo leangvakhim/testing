@@ -44,6 +44,8 @@ params = {
     'r_start': 0.8,
     'r_end': 0.2,
     'dynamic_role_lambda': 2,
+
+    'w_overlap': 0.1,
 }
 
 if val == 1:

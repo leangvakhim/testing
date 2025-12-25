@@ -79,6 +79,9 @@ class coverage():
 
         return cov
 
+    # def plot_graphs(self, best_fitness):
+
+
     def plot_coverage(self, best_fitness):
         fig, ax = plt.subplots(figsize=(6,6))
 
