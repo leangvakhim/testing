@@ -79,7 +79,27 @@ class coverage():
 
         return cov
 
-    # def plot_graphs(self, best_fitness):
+    def plot_iterative_coverage(self, convergence_curve):
+        # Convert fitness (1 - coverage) back to coverage percentage
+        coverage_history = [(1 - fitness) * 100 for fitness in convergence_curve]
+        iterations = np.arange(1, len(coverage_history) + 1)
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+
+        # Plot the line graph
+        ax.plot(iterations, coverage_history, color='b', linewidth=2, label='Max Coverage')
+
+        # Formatting the graph
+        ax.set_title('Coverage Rate Evolution')
+        ax.set_xlabel('Iteration')
+        ax.set_ylabel('Coverage Rate (%)')
+        ax.set_xlim(0, len(coverage_history))
+        ax.set_ylim(min(coverage_history) - 1, 100.5) # Dynamic Y-axis with some padding
+        ax.grid(True, linestyle='--', alpha=0.6)
+        ax.legend(loc='lower right')
+
+        plt.tight_layout()
+        plt.show()
 
 
     def plot_coverage(self, best_fitness):

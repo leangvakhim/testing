@@ -15,21 +15,21 @@ class ssapm():
         self.params = params
         self.func_name = func_name
 
-    # def initialize(self):
-    #     x = self.lb + np.random.rand(self.n, self.dim) * (self.ub - self.lb)
-    #     return x
-
     def initialize(self):
-        x = np.zeros((self.n, self.dim))
-
-        primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53]
-        while len(primes) < self.dim:
-            primes.append(primes[-1] + 1)
-
-        r = np.sqrt(np.array(primes[:self.dim]))
-        for i in range(self.n):
-            x[i] = self.lb + (self.ub - self.lb) * ((r * (i + 1)) % 1)
+        x = self.lb + np.random.rand(self.n, self.dim) * (self.ub - self.lb)
         return x
+
+    # def initialize(self):
+    #     x = np.zeros((self.n, self.dim))
+
+    #     primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53]
+    #     while len(primes) < self.dim:
+    #         primes.append(primes[-1] + 1)
+
+    #     r = np.sqrt(np.array(primes[:self.dim]))
+    #     for i in range(self.n):
+    #         x[i] = self.lb + (self.ub - self.lb) * ((r * (i + 1)) % 1)
+    #     return x
 
     def obj_func(self, val):
         if self.func_name == 'coverage_optimization':
@@ -252,7 +252,6 @@ class ssapm():
         new_solution[worst_node_idx * 2 + 1] = target_pos[1]
 
         return new_solution
-
 
     def run(self):
         list_fitness = []

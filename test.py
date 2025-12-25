@@ -69,9 +69,11 @@ if val == 1:
     best_pos_reshaped = best_pos.reshape(num_sensor, 2)
     # print(f"Best fitness: {1 - best_fitness}")
     # print(f"Best pos: {best_pos}")
+    # print(f"convergence curve: {convergence_curve}")
     cov = coverage(params['w'], params['h'], num_sensor, params['sensing_radius'], params['r_error'], best_pos_reshaped)
     # cov.calculate_probabilistics_coverage()
     cov.plot_coverage(best_fitness)
+    # cov.plot_iterative_coverage(convergence_curve)
     # print(x_val)
 elif val == 2:
     print("Benchmark testing")
