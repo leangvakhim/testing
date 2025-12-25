@@ -58,7 +58,7 @@ if val == 1:
     dim = num_sensor * 2
     params['w'] = 50
     params['h'] = 50
-    params['sensing_radius'] = 7
+    params['sensing_radius'] = 6
     params['r_error'] = 0.5
     params['num_nodes'] = num_sensor
     func_name='coverage_optimization'
@@ -70,7 +70,7 @@ if val == 1:
     # print(f"Best fitness: {1 - best_fitness}")
     # print(f"Best pos: {best_pos}")
     # print(f"convergence curve: {convergence_curve}")
-    cov = coverage(params['w'], params['h'], num_sensor, params['sensing_radius'], params['r_error'], best_pos_reshaped)
+    cov = coverage(params['w'], params['h'], num_sensor, 7, params['r_error'], best_pos_reshaped)
     # cov.calculate_probabilistics_coverage()
 
     true_coverage = cov.calculate_probabilistics_coverage()

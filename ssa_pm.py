@@ -236,7 +236,7 @@ class ssapm():
 
         num_nodes = self.params['num_nodes']
         Rs = self.params['sensing_radius']
-        k_rep = 20.0
+        k_rep = 5.0
 
         nodes = current_pos_flat.reshape(num_nodes, 2)
         force_vec = np.zeros_like(nodes)
