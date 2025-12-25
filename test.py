@@ -51,7 +51,7 @@ params = {
 if val == 1:
     print("Coverage testing")
     pop_size = 50
-    max_iter = 100
+    max_iter = 300
     lb = 0
     ub = 50
     num_sensor = 20
@@ -72,7 +72,11 @@ if val == 1:
     # print(f"convergence curve: {convergence_curve}")
     cov = coverage(params['w'], params['h'], num_sensor, params['sensing_radius'], params['r_error'], best_pos_reshaped)
     # cov.calculate_probabilistics_coverage()
-    cov.plot_coverage(best_fitness)
+
+    true_coverage = cov.calculate_probabilistics_coverage()
+    print(f"True Final Coverage: {true_coverage * 100:.2f}%")
+    # cov.plot_coverage(best_fitness)
+    cov.plot_coverage(1.0 - true_coverage)
     # cov.plot_iterative_coverage(convergence_curve)
     # print(x_val)
 elif val == 2:
