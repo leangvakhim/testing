@@ -115,7 +115,7 @@ class coverage():
         r_certain = self.sensing_radius - self.r_error
         r_max = self.sensing_radius + self.r_error
 
-        for node in self.nodes_pos:
+        for i, node in enumerate(self.nodes_pos):
             # 1. Plot Max Range (r_c + r_e)
             circle_max = plt.Circle(node, r_max, color='palegreen', fill=True, alpha=0.2, linewidth=0)
             ax.add_artist(circle_max)
@@ -130,6 +130,7 @@ class coverage():
 
             # Plot the sensor node center
             ax.plot(node[0], node[1], 'r.', markersize=5)
+            ax.text(node[0] + 0.5, node[1] + 0.5, str(i + 1), fontsize=9, color='black')
 
         legend_elements = [
             Patch(facecolor='forestgreen', edgecolor='none', alpha=0.3, label='Certainty Range'),

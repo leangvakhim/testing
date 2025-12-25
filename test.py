@@ -16,12 +16,12 @@ params = {
     # 'flag_stagnate': False,
 
     # levy-flight
-    'beta_levy_flight': 1.5,
-    'alpha_levy_flight': 0.01,
-    'small_sigma_ve': 1,
+    # 'beta_levy_flight': 1.5,
+    # 'alpha_levy_flight': 0.01,
+    # 'small_sigma_ve': 1,
 
     # chaotic-rebirth
-    'chaotic_rebirth_mu': 4.0,
+    # 'chaotic_rebirth_mu': 4.0,
 
     # ATP
     'g_0': 100,

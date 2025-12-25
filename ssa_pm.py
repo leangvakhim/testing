@@ -46,22 +46,28 @@ class ssapm():
 
             fitness = 1.0 - coverage_rate
 
-            # 2. Delaunay Uniformity Penalty (New)
-            # Penalize if nodes are too close (Clustering)
-            # This is faster than full hole calculation every iteration
+            # 2. Delaunay Uniformity Penalty (Robust Version)
             penalty = 0
-            tri = Delaunay(pos_reshaped)
-            for simplex in tri.simplices:
-                pts = pos_reshaped[simplex]
-                # If any edge of the triangle is very small, it means nodes are clustered
-                d1 = np.linalg.norm(pts[0] - pts[1])
-                d2 = np.linalg.norm(pts[1] - pts[2])
-                d3 = np.linalg.norm(pts[2] - pts[0])
+            try:
+                # 'QJ' option 'joggles' input to prevent crashes on overlapping nodes
+                tri = Delaunay(pos_reshaped, qhull_options="QJ")
 
-                min_edge = min(d1, d2, d3)
-                # If nodes are closer than 50% of sensing radius, penalize heavily
-                if min_edge < sensing_radius * 0.5:
-                    penalty += 0.05 # Add 5% penalty cost per cluster
+                for simplex in tri.simplices:
+                    pts = pos_reshaped[simplex]
+                    d1 = np.linalg.norm(pts[0] - pts[1])
+                    d2 = np.linalg.norm(pts[1] - pts[2])
+                    d3 = np.linalg.norm(pts[2] - pts[0])
+
+                    min_edge = min(d1, d2, d3)
+
+                    # Penalize if nodes are too close
+                    if min_edge < sensing_radius * 0.5:
+                        penalty += 0.05
+
+            except Exception as e:
+                # If Delaunay crashes (usually due to identical points),
+                # it means the solution is degenerate/clustered. Apply max penalty.
+                penalty = 0.5
 
             return fitness + penalty
 
@@ -370,6 +376,13 @@ class ssapm():
 
         # If no significant hole found, return original
         if target_pos is None:
+            return best_pos_flat
+
+        try:
+            # Add qhull_options="QJ" here as well
+            tri = Delaunay(nodes, qhull_options="QJ")
+        except:
+            # If it fails, just return the original position without repair
             return best_pos_flat
 
         # 3. Find the "Worst" Node (Most Clustered/Redundant)
