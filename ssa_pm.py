@@ -2,7 +2,7 @@ import numpy as np
 from benchmark import benchmark
 from tqdm import tqdm
 from coverage import coverage
-from scipy.spatial import Voronoi
+from scipy.spatial import Voronoi, Delaunay
 import math
 
 class ssapm():
@@ -39,14 +39,55 @@ class ssapm():
             sensing_radius = self.params['sensing_radius']
             r_error = self.params['r_error']
             pos_reshaped = val.reshape(num_nodes, 2)
+
+            # 1. Standard Coverage Calculation
             cov = coverage(w, h, num_nodes, sensing_radius, r_error, pos_reshaped)
             coverage_rate = cov.calculate_probabilistics_coverage()
-            return 1.0 - coverage_rate
+
+            fitness = 1.0 - coverage_rate
+
+            # 2. Delaunay Uniformity Penalty (New)
+            # Penalize if nodes are too close (Clustering)
+            # This is faster than full hole calculation every iteration
+            penalty = 0
+            tri = Delaunay(pos_reshaped)
+            for simplex in tri.simplices:
+                pts = pos_reshaped[simplex]
+                # If any edge of the triangle is very small, it means nodes are clustered
+                d1 = np.linalg.norm(pts[0] - pts[1])
+                d2 = np.linalg.norm(pts[1] - pts[2])
+                d3 = np.linalg.norm(pts[2] - pts[0])
+
+                min_edge = min(d1, d2, d3)
+                # If nodes are closer than 50% of sensing radius, penalize heavily
+                if min_edge < sensing_radius * 0.5:
+                    penalty += 0.05 # Add 5% penalty cost per cluster
+
+            return fitness + penalty
+
         else:
             obj_func = benchmark(self.lb, self.ub, self.dim)
             func_to_call = getattr(obj_func, self.func_name)
             f_name = func_to_call(val)
         return f_name
+
+    # Main
+    # def obj_func(self, val):
+    #     if self.func_name == 'coverage_optimization':
+    #         w = self.params['w']
+    #         h = self.params['h']
+    #         num_nodes = self.params['num_nodes']
+    #         sensing_radius = self.params['sensing_radius']
+    #         r_error = self.params['r_error']
+    #         pos_reshaped = val.reshape(num_nodes, 2)
+    #         cov = coverage(w, h, num_nodes, sensing_radius, r_error, pos_reshaped)
+    #         coverage_rate = cov.calculate_probabilistics_coverage()
+    #         return 1.0 - coverage_rate
+    #     else:
+    #         obj_func = benchmark(self.lb, self.ub, self.dim)
+    #         func_to_call = getattr(obj_func, self.func_name)
+    #         f_name = func_to_call(val)
+    #     return f_name
 
     def levy_flight_jump(self):
         small_sigma_mu_numerator = math.gamma(1 + self.params['beta_levy_flight']) * (math.sin(math.pi * self.params['beta_levy_flight'] / 2))
@@ -172,82 +213,186 @@ class ssapm():
 
         return c_pos
 
-    def calculate_virtual_force(self, current_pos_flat):
+    # def calculate_virtual_force(self, current_pos_flat):
 
-        if 'num_nodes' not in self.params:
-            return np.zeros_like(current_pos_flat)
+    #     if 'num_nodes' not in self.params:
+    #         return np.zeros_like(current_pos_flat)
 
+    #     num_nodes = self.params['num_nodes']
+    #     Rs = self.params['sensing_radius']
+    #     k_rep = 1000.0
+
+    #     nodes = current_pos_flat.reshape(num_nodes, 2)
+    #     force_vec = np.zeros_like(nodes)
+
+    #     for i in range(num_nodes):
+    #         # 1. Inter-node repulsion
+    #         for j in range(num_nodes):
+    #             if i == j:
+    #                 continue
+    #             dist_vec = nodes[i] - nodes[j]
+    #             dist = np.linalg.norm(dist_vec)
+
+    #             if dist < 2 * Rs and dist > 0:
+    #                 f_mag = k_rep / (dist ** 2 + 1e-5)
+    #                 force_vec[i] += f_mag * (dist_vec / dist)
+
+    #         # 2. Wall Repulsion
+    #         # Left Wall (x=0)
+    #         if nodes[i, 0] < Rs: force_vec[i, 0] += k_rep / (nodes[i, 0]**2 + 1e-5)
+    #         # Right Wall (x=W)
+    #         if nodes[i, 0] > self.params['w'] - Rs: force_vec[i, 0] -= k_rep / ((self.params['w'] - nodes[i, 0])**2 + 1e-5)
+    #         # Bottom Wall (y=0)
+    #         if nodes[i, 1] < Rs: force_vec[i, 1] += k_rep / (nodes[i, 1]**2 + 1e-5)
+    #         # Top Wall (y=H)
+    #         if nodes[i, 1] > self.params['h'] - Rs: force_vec[i, 1] -= k_rep / ((self.params['h'] - nodes[i, 1])**2 + 1e-5)
+
+    #     return force_vec.flatten()
+
+    # def voronoi_spark(self, best_pos_flat):
+    #     num_nodes = self.params['num_nodes']
+    #     nodes = best_pos_flat.reshape(num_nodes, 2)
+
+    #     # Compute Voronoi
+    #     try:
+    #         vor = Voronoi(nodes)
+    #     except:
+    #         return best_pos_flat
+
+    #     # Find the largest hole
+    #     max_dist = -1
+    #     target_pos = None
+
+    #     def in_bounds(pos):
+    #         return 0 <= pos[0] <= self.params['w'] and 0 <= pos[1] <= self.params['h']
+
+    #     for v in vor.vertices:
+    #         if not in_bounds(v):
+    #             continue
+    #         d = np.min(np.linalg.norm(nodes - v, axis=1))
+    #         if d > max_dist:
+    #             max_dist = d
+    #             target_pos = v
+
+    #     if target_pos is None:
+    #         return best_pos_flat
+
+    #     # Find the most useless node (highest overlap)
+    #     overlaps = np.zeros(num_nodes)
+    #     for i in range(num_nodes):
+    #         for j in range(num_nodes):
+    #             if i != j and np.linalg.norm(nodes[i] - nodes[j]) < 2 * self.params['sensing_radius']:
+    #                 overlaps[i] += 1
+
+    #     worst_node_idx = np.argmax(overlaps)
+
+    #     # Create Spark
+    #     new_solution = best_pos_flat.copy()
+    #     # Update the x, y of the worst node
+    #     new_solution[worst_node_idx * 2] = target_pos[0]
+    #     new_solution[worst_node_idx * 2 + 1] = target_pos[1]
+
+    #     return new_solution
+
+    # def calculate_vfa_forces(nodes, sensing_radius, width, height):
+    #     forces = np.zeros(shape=(20, 2))
+    #     d_th = sensing_radius * np.sqrt(3)  # 12.12m
+
+    #     # 1. Inter-node Repulsion
+    #     for i in range(20):
+    #         for j in range(i + 1, 20):
+    #             dist_vec = nodes[i] - nodes[j]
+    #             dist = np.linalg.norm(dist_vec)
+
+    #             # Apply force only if overlap exists (dist < d_th)
+    #             if dist < d_th and dist > 0:
+    #                 # Coulomb force: k / dist^2
+    #                 # Or Linear Spring: k * (d_th - dist)
+    #                 force_mag = 10.0 * (d_th - dist) # Linear is often more stable
+    #                 force_vec = (dist_vec / dist) * force_mag
+
+    #                 forces[i] += force_vec
+    #                 forces[j] -= force_vec
+
+    #     # 2. Boundary Repulsion (Wall Force)
+    #     for i in range(20):
+    #         # Left Wall
+    #         if nodes[i][0] < sensing_radius:
+    #             forces[i][0] += 5.0 * (sensing_radius - nodes[i][0])
+    #         # Right Wall
+    #         if nodes[i][0] > width - sensing_radius:
+    #             forces[i][0] -= 5.0 * (nodes[i][0] - (width - sensing_radius))
+    #         # Top/Bottom similar...
+
+    #     return forces
+
+    def delaunay_repair(self, best_pos_flat):
         num_nodes = self.params['num_nodes']
-        Rs = self.params['sensing_radius']
-        k_rep = 1000.0
+        w = self.params['w']
+        h = self.params['h']
+        sensing_radius = self.params['sensing_radius']
 
-        nodes = current_pos_flat.reshape(num_nodes, 2)
-        force_vec = np.zeros_like(nodes)
-
-        for i in range(num_nodes):
-            # 1. Inter-node repulsion
-            for j in range(num_nodes):
-                if i == j:
-                    continue
-                dist_vec = nodes[i] - nodes[j]
-                dist = np.linalg.norm(dist_vec)
-
-                if dist < 2 * Rs and dist > 0:
-                    f_mag = k_rep / (dist ** 2 + 1e-5)
-                    force_vec[i] += f_mag * (dist_vec / dist)
-
-            # 2. Wall Repulsion
-            # Left Wall (x=0)
-            if nodes[i, 0] < Rs: force_vec[i, 0] += k_rep / (nodes[i, 0]**2 + 1e-5)
-            # Right Wall (x=W)
-            if nodes[i, 0] > self.params['w'] - Rs: force_vec[i, 0] -= k_rep / ((self.params['w'] - nodes[i, 0])**2 + 1e-5)
-            # Bottom Wall (y=0)
-            if nodes[i, 1] < Rs: force_vec[i, 1] += k_rep / (nodes[i, 1]**2 + 1e-5)
-            # Top Wall (y=H)
-            if nodes[i, 1] > self.params['h'] - Rs: force_vec[i, 1] -= k_rep / ((self.params['h'] - nodes[i, 1])**2 + 1e-5)
-
-        return force_vec.flatten()
-
-    def voronoi_spark(self, best_pos_flat):
-        num_nodes = self.params['num_nodes']
+        # Reshape to (N, 2)
         nodes = best_pos_flat.reshape(num_nodes, 2)
 
-        # Compute Voronoi
+        # 1. Compute Delaunay Triangulation
         try:
-            vor = Voronoi(nodes)
+            tri = Delaunay(nodes)
         except:
             return best_pos_flat
 
-        # Find the largest hole
-        max_dist = -1
+        # 2. Find the Largest "Empty" Triangle
+        max_area = -1
         target_pos = None
 
-        def in_bounds(pos):
-            return 0 <= pos[0] <= self.params['w'] and 0 <= pos[1] <= self.params['h']
+        for simplex in tri.simplices:
+            pts = nodes[simplex]
 
-        for v in vor.vertices:
-            if not in_bounds(v):
+            # Calculate Centroid of the triangle
+            centroid = np.mean(pts, axis=0)
+
+            # Check bounds
+            if not (0 <= centroid[0] <= w and 0 <= centroid[1] <= h):
                 continue
-            d = np.min(np.linalg.norm(nodes - v, axis=1))
-            if d > max_dist:
-                max_dist = d
-                target_pos = v
 
+            # Check if this triangle is actually a "Hole"
+            # (Distance from centroid to nearest node > sensing_radius)
+            dists = np.linalg.norm(pts - centroid, axis=1)
+            if np.min(dists) > sensing_radius * 0.9: # 0.9 factor for safety
+
+                # Calculate Area
+                a, b, c = pts[0], pts[1], pts[2]
+                area = 0.5 * np.abs(np.cross(b-a, c-a))
+
+                if area > max_area:
+                    max_area = area
+                    target_pos = centroid
+
+        # If no significant hole found, return original
         if target_pos is None:
             return best_pos_flat
 
-        # Find the most useless node (highest overlap)
+        # 3. Find the "Worst" Node (Most Clustered/Redundant)
+        # We find the node that is closest to its neighbors
         overlaps = np.zeros(num_nodes)
         for i in range(num_nodes):
+            dist_sum = 0
+            count = 0
             for j in range(num_nodes):
-                if i != j and np.linalg.norm(nodes[i] - nodes[j]) < 2 * self.params['sensing_radius']:
+                if i == j: continue
+                d = np.linalg.norm(nodes[i] - nodes[j])
+                if d < 2 * sensing_radius: # If overlapping
                     overlaps[i] += 1
+                    dist_sum += d
+                    count += 1
+            # Penalize nodes with many close neighbors
+            if count > 0:
+                overlaps[i] = overlaps[i] + (1.0 / (dist_sum/count + 1e-5))
 
         worst_node_idx = np.argmax(overlaps)
 
-        # Create Spark
+        # 4. Move Worst Node to Target (Hole Center)
         new_solution = best_pos_flat.copy()
-        # Update the x, y of the worst node
         new_solution[worst_node_idx * 2] = target_pos[0]
         new_solution[worst_node_idx * 2 + 1] = target_pos[1]
 
@@ -387,6 +532,9 @@ class ssapm():
                     # velocities[i] = 0.5 * velocities[i] + elastic_attraction + v_force
                     # current_pos[i] = current_pos[i] + velocities[i]
 
+                # vfa_forces = self.calculate_vfa_forces(current_pos)
+                # current_pos[i] = current_pos[i] + (vfa_forces[i] * learning_rate)
+
                 current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                 list_fitness[i] = self.obj_func(current_pos[i])
 
@@ -395,6 +543,17 @@ class ssapm():
                     current_best_pos = current_pos[i].copy()
 
             current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+
+            spark_pos = self.delaunay_repair(current_best_pos)
+            spark_fitness = self.obj_func(spark_pos)
+
+            # If the repair improved the solution, keep it
+            if spark_fitness < current_best:
+                # print(f"Delaunay Repair Improved: {current_best:.4f} -> {spark_fitness:.4f}")
+                current_best = spark_fitness
+                current_best_pos = spark_pos.copy()
+                current_pos[current_best_index] = spark_pos.copy()
+                list_fitness[current_best_index] = spark_fitness
 
             # Voronoi Spark (Hole Targeting)
             # spark_pos = self.voronoi_spark(current_best_pos)
