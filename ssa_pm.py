@@ -31,6 +31,7 @@ class ssapm():
     #         x[i] = self.lb + (self.ub - self.lb) * ((r * (i + 1)) % 1)
     #     return x
 
+    # Main
     def obj_func(self, val):
         if self.func_name == 'coverage_optimization':
             w = self.params['w']
@@ -39,71 +40,53 @@ class ssapm():
             sensing_radius = self.params['sensing_radius']
             r_error = self.params['r_error']
             pos_reshaped = val.reshape(num_nodes, 2)
-
-            # 1. Standard Coverage Calculation
             cov = coverage(w, h, num_nodes, sensing_radius, r_error, pos_reshaped)
             coverage_rate = cov.calculate_probabilistics_coverage()
-
-            fitness = 1.0 - coverage_rate
-
-            overlap_penalty = 0
-            safe_distance = sensing_radius * 1.5
-
-            for i in range(num_nodes):
-                for j in range(i + 1, num_nodes):
-                    dist = np.linalg.norm(pos_reshaped[i] - pos_reshaped[j])
-                    if dist < safe_distance:
-                        # The closer they are, the higher the penalty
-                        overlap_penalty += 0.01 * (safe_distance - dist)
-
-            # 2. Delaunay Uniformity Penalty (Robust Version)
-            # penalty = 0
-            # try:
-            #     # 'QJ' option 'joggles' input to prevent crashes on overlapping nodes
-            #     tri = Delaunay(pos_reshaped, qhull_options="QJ")
-
-            #     for simplex in tri.simplices:
-            #         pts = pos_reshaped[simplex]
-            #         d1 = np.linalg.norm(pts[0] - pts[1])
-            #         d2 = np.linalg.norm(pts[1] - pts[2])
-            #         d3 = np.linalg.norm(pts[2] - pts[0])
-
-            #         min_edge = min(d1, d2, d3)
-
-            #         # Penalize if nodes are too close
-            #         if min_edge < sensing_radius * 0.5:
-            #             penalty += 0.05
-
-            # except Exception as e:
-            #     # If Delaunay crashes (usually due to identical points),
-            #     # it means the solution is degenerate/clustered. Apply max penalty.
-            #     penalty = 0.5
-
-            return fitness + overlap_penalty
-
+            return 1.0 - coverage_rate
         else:
             obj_func = benchmark(self.lb, self.ub, self.dim)
             func_to_call = getattr(obj_func, self.func_name)
             f_name = func_to_call(val)
         return f_name
 
-    # Main
-    # def obj_func(self, val):
-    #     if self.func_name == 'coverage_optimization':
-    #         w = self.params['w']
-    #         h = self.params['h']
-    #         num_nodes = self.params['num_nodes']
-    #         sensing_radius = self.params['sensing_radius']
-    #         r_error = self.params['r_error']
-    #         pos_reshaped = val.reshape(num_nodes, 2)
-    #         cov = coverage(w, h, num_nodes, sensing_radius, r_error, pos_reshaped)
-    #         coverage_rate = cov.calculate_probabilistics_coverage()
-    #         return 1.0 - coverage_rate
-    #     else:
-    #         obj_func = benchmark(self.lb, self.ub, self.dim)
-    #         func_to_call = getattr(obj_func, self.func_name)
-    #         f_name = func_to_call(val)
-    #     return f_name
+    def chaotic_initialization(self, map_type='logistic'):
+
+        population = np.zeros((self.n, self.dim))
+
+        # 1. Generate Chaotic Sequence matrix (normalized 0-1)
+        chaos_matrix = np.zeros((self.n, self.dim))
+
+        # Initial chaotic value (random start, but usually not 0, 0.5, etc.)
+        # We create a random start vector for the first row
+        x = np.random.rand(self.dim)
+
+        # Iterate to fill the columns (or rows depending on strategy)
+        # Here we run independent chaotic maps for each dimension to decorrelate them
+        for i in range(self.n):
+            for j in range(self.dim):
+                if map_type == 'logistic':
+                    # Logistic Map: x_new = 4 * x * (1 - x)
+                    # Avoid fixed points by adding tiny jitter if x hits 0.5 or 0
+                    if x[j] in [0, 0.25, 0.5, 0.75, 1.0]:
+                        x[j] += 1e-5
+                    val = 4.0 * x[j] * (1.0 - x[j])
+
+                elif map_type == 'tent':
+                    # Tent Map
+                    if x[j] < 0.5:
+                        val = 2.0 * x[j]
+                    else:
+                        val = 2.0 * (1.0 - x[j])
+
+                x[j] = val # Update state
+                chaos_matrix[i, j] = val
+
+        # 2. Map Chaotic Sequence from [0, 1] to [lb, ub]
+        for i in range(self.n):
+            for j in range(self.dim):
+                population[i, j] = self.lb[j] + chaos_matrix[i, j] * (self.ub[j] - self.lb[j])
+
+        return population
 
     def levy_flight_jump(self):
         small_sigma_mu_numerator = math.gamma(1 + self.params['beta_levy_flight']) * (math.sin(math.pi * self.params['beta_levy_flight'] / 2))
@@ -229,41 +212,41 @@ class ssapm():
 
         return c_pos
 
-    def calculate_virtual_force(self, current_pos_flat):
+    # def calculate_virtual_force(self, current_pos_flat):
 
-        if 'num_nodes' not in self.params:
-            return np.zeros_like(current_pos_flat)
+    #     if 'num_nodes' not in self.params:
+    #         return np.zeros_like(current_pos_flat)
 
-        num_nodes = self.params['num_nodes']
-        Rs = self.params['sensing_radius']
-        k_rep = 5.0
+    #     num_nodes = self.params['num_nodes']
+    #     Rs = self.params['sensing_radius']
+    #     k_rep = 2.0
 
-        nodes = current_pos_flat.reshape(num_nodes, 2)
-        force_vec = np.zeros_like(nodes)
+    #     nodes = current_pos_flat.reshape(num_nodes, 2)
+    #     force_vec = np.zeros_like(nodes)
 
-        for i in range(num_nodes):
-            # 1. Inter-node repulsion
-            for j in range(num_nodes):
-                if i == j:
-                    continue
-                dist_vec = nodes[i] - nodes[j]
-                dist = np.linalg.norm(dist_vec)
+    #     for i in range(num_nodes):
+    #         # 1. Inter-node repulsion
+    #         for j in range(num_nodes):
+    #             if i == j:
+    #                 continue
+    #             dist_vec = nodes[i] - nodes[j]
+    #             dist = np.linalg.norm(dist_vec)
 
-                if dist < 2 * Rs and dist > 0:
-                    f_mag = k_rep / (dist ** 2 + 1e-5)
-                    force_vec[i] += f_mag * (dist_vec / dist)
+    #             if dist < 2 * Rs and dist > 0:
+    #                 f_mag = k_rep / (dist ** 2 + 1e-5)
+    #                 force_vec[i] += f_mag * (dist_vec / dist)
 
-            # 2. Wall Repulsion
-            # Left Wall (x=0)
-            if nodes[i, 0] < Rs: force_vec[i, 0] += k_rep / (nodes[i, 0]**2 + 1e-5)
-            # Right Wall (x=W)
-            if nodes[i, 0] > self.params['w'] - Rs: force_vec[i, 0] -= k_rep / ((self.params['w'] - nodes[i, 0])**2 + 1e-5)
-            # Bottom Wall (y=0)
-            if nodes[i, 1] < Rs: force_vec[i, 1] += k_rep / (nodes[i, 1]**2 + 1e-5)
-            # Top Wall (y=H)
-            if nodes[i, 1] > self.params['h'] - Rs: force_vec[i, 1] -= k_rep / ((self.params['h'] - nodes[i, 1])**2 + 1e-5)
+    #         # 2. Wall Repulsion
+    #         # Left Wall (x=0)
+    #         if nodes[i, 0] < Rs: force_vec[i, 0] += k_rep / (nodes[i, 0]**2 + 1e-5)
+    #         # Right Wall (x=W)
+    #         if nodes[i, 0] > self.params['w'] - Rs: force_vec[i, 0] -= k_rep / ((self.params['w'] - nodes[i, 0])**2 + 1e-5)
+    #         # Bottom Wall (y=0)
+    #         if nodes[i, 1] < Rs: force_vec[i, 1] += k_rep / (nodes[i, 1]**2 + 1e-5)
+    #         # Top Wall (y=H)
+    #         if nodes[i, 1] > self.params['h'] - Rs: force_vec[i, 1] -= k_rep / ((self.params['h'] - nodes[i, 1])**2 + 1e-5)
 
-        return force_vec.flatten()
+    #     return force_vec.flatten()
 
     # def voronoi_spark(self, best_pos_flat):
     #     num_nodes = self.params['num_nodes']
@@ -430,7 +413,8 @@ class ssapm():
         t_0 = self.params['t_0']
         convergence_curve = []
         # percentage_to_reset = self.params['tau_stagnate'] * self.max_iter / 100
-        current_pos = self.initialize()
+        # current_pos = self.initialize()
+        current_pos = self.chaotic_initialization()
         velocities = np.zeros((self.n, self.dim))
         for i in range(0, self.n):
             fitness = self.obj_func(current_pos[i])
@@ -546,14 +530,14 @@ class ssapm():
                     current_pos[i] = rep_pos_from_sa
 
                     # Calculate virtual force (repulsion)
-                    v_force = self.calculate_virtual_force(current_pos[i])
+                    # v_force = self.calculate_virtual_force(current_pos[i])
 
                     # # Elastic Attraction to Global Best
                     # elastic_attraction = np.random.rand() * (current_best_pos - current_pos[i])
 
                     # # Update velocities & Position
-                    velocities[i] = 0.5 * velocities[i] + v_force
-                    current_pos[i] = current_pos[i] + velocities[i]
+                    # velocities[i] = 0.5 * velocities[i] + v_force
+                    # current_pos[i] = current_pos[i] + velocities[i]
 
                 # vfa_forces = self.calculate_vfa_forces(current_pos)
                 # current_pos[i] = current_pos[i] + (vfa_forces[i] * learning_rate)
@@ -567,16 +551,16 @@ class ssapm():
 
             current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
-            spark_pos = self.delaunay_repair(current_best_pos)
-            spark_fitness = self.obj_func(spark_pos)
+            # spark_pos = self.delaunay_repair(current_best_pos)
+            # spark_fitness = self.obj_func(spark_pos)
 
-            # If the repair improved the solution, keep it
-            if spark_fitness < current_best:
-                # print(f"Delaunay Repair Improved: {current_best:.4f} -> {spark_fitness:.4f}")
-                current_best = spark_fitness
-                current_best_pos = spark_pos.copy()
-                current_pos[current_best_index] = spark_pos.copy()
-                list_fitness[current_best_index] = spark_fitness
+            # # If the repair improved the solution, keep it
+            # if spark_fitness < current_best:
+            #     # print(f"Delaunay Repair Improved: {current_best:.4f} -> {spark_fitness:.4f}")
+            #     current_best = spark_fitness
+            #     current_best_pos = spark_pos.copy()
+            #     current_pos[current_best_index] = spark_pos.copy()
+            #     list_fitness[current_best_index] = spark_fitness
 
             # Voronoi Spark (Hole Targeting)
             # spark_pos = self.voronoi_spark(current_best_pos)

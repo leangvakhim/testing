@@ -21,7 +21,7 @@ params = {
     # 'small_sigma_ve': 1,
 
     # chaotic-rebirth
-    # 'chaotic_rebirth_mu': 4.0,
+    'chaotic_rebirth_mu': 4.0,
 
     # ATP
     'g_0': 100,
@@ -45,20 +45,20 @@ params = {
     'r_end': 0.2,
     'dynamic_role_lambda': 2,
 
-    'w_overlap': 0.1,
+    # 'w_overlap': 0.1,
 }
 
 if val == 1:
     print("Coverage testing")
     pop_size = 50
-    max_iter = 300
+    max_iter = 100
     lb = 0
     ub = 50
     num_sensor = 20
     dim = num_sensor * 2
     params['w'] = 50
     params['h'] = 50
-    params['sensing_radius'] = 6
+    params['sensing_radius'] = 7
     params['r_error'] = 0.5
     params['num_nodes'] = num_sensor
     func_name='coverage_optimization'
@@ -70,14 +70,14 @@ if val == 1:
     # print(f"Best fitness: {1 - best_fitness}")
     # print(f"Best pos: {best_pos}")
     # print(f"convergence curve: {convergence_curve}")
-    cov = coverage(params['w'], params['h'], num_sensor, 7, params['r_error'], best_pos_reshaped)
+    cov = coverage(params['w'], params['h'], num_sensor, params['sensing_radius'], params['r_error'], best_pos_reshaped)
     # cov.calculate_probabilistics_coverage()
 
     true_coverage = cov.calculate_probabilistics_coverage()
-    print(f"True Final Coverage: {true_coverage * 100:.2f}%")
+    # print(f"True Final Coverage: {true_coverage * 100:.2f}%")
     # cov.plot_coverage(best_fitness)
     cov.plot_coverage(1.0 - true_coverage)
-    # cov.plot_iterative_coverage(convergence_curve)
+    cov.plot_iterative_coverage(convergence_curve)
     # print(x_val)
 elif val == 2:
     print("Benchmark testing")

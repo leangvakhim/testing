@@ -94,7 +94,7 @@ class coverage():
         ax.set_xlabel('Iteration')
         ax.set_ylabel('Coverage Rate (%)')
         ax.set_xlim(0, len(coverage_history))
-        ax.set_ylim(min(coverage_history) - 1, 100.5) # Dynamic Y-axis with some padding
+        ax.set_ylim(min(coverage_history) - 1, 100.5)
         ax.grid(True, linestyle='--', alpha=0.6)
         ax.legend(loc='lower right')
 
@@ -125,8 +125,8 @@ class coverage():
             ax.add_artist(circle_certain)
 
             # 3. Plot Nominal Radius (r_c)
-            circle_nominal = plt.Circle(node, self.sensing_radius, color='black', fill=False, linestyle='--', alpha=0.3)
-            ax.add_artist(circle_nominal)
+            # circle_nominal = plt.Circle(node, self.sensing_radius, color='black', fill=False, linestyle='--', alpha=0.3)
+            # ax.add_artist(circle_nominal)
 
             # Plot the sensor node center
             ax.plot(node[0], node[1], 'r.', markersize=5)
