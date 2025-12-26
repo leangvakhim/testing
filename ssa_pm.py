@@ -49,44 +49,42 @@ class ssapm():
             f_name = func_to_call(val)
         return f_name
 
-    def chaotic_initialization(self, map_type='logistic'):
+    # def chaotic_initialization(self, map_type='tent'):
 
-        population = np.zeros((self.n, self.dim))
+    #     population = np.zeros((self.n, self.dim))
 
-        # 1. Generate Chaotic Sequence matrix (normalized 0-1)
-        chaos_matrix = np.zeros((self.n, self.dim))
+    #     # 1. Generate Chaotic Sequence matrix (normalized 0-1)
+    #     chaos_matrix = np.zeros((self.n, self.dim))
 
-        # Initial chaotic value (random start, but usually not 0, 0.5, etc.)
-        # We create a random start vector for the first row
-        x = np.random.rand(self.dim)
+    #     # Initial chaotic value (random start, but usually not 0, 0.5, etc.)
+    #     # We create a random start vector for the first row
+    #     x = np.random.rand(self.dim)
 
-        # Iterate to fill the columns (or rows depending on strategy)
-        # Here we run independent chaotic maps for each dimension to decorrelate them
-        for i in range(self.n):
-            for j in range(self.dim):
-                if map_type == 'logistic':
-                    # Logistic Map: x_new = 4 * x * (1 - x)
-                    # Avoid fixed points by adding tiny jitter if x hits 0.5 or 0
-                    if x[j] in [0, 0.25, 0.5, 0.75, 1.0]:
-                        x[j] += 1e-5
-                    val = 4.0 * x[j] * (1.0 - x[j])
+    #     # Iterate to fill the columns (or rows depending on strategy)
+    #     # Here we run independent chaotic maps for each dimension to decorrelate them
+    #     for i in range(self.n):
+    #         for j in range(self.dim):
+    #             if map_type == 'logistic':
+    #                 # Logistic Map: x_new = 4 * x * (1 - x)
+    #                 # Avoid fixed points by adding tiny jitter if x hits 0.5 or 0
+    #                 if x[j] in [0, 0.25, 0.5, 0.75, 1.0]:
+    #                     x[j] += 1e-5
+    #                 val = 4.0 * x[j] * (1.0 - x[j])
 
-                elif map_type == 'tent':
-                    # Tent Map
-                    if x[j] < 0.5:
-                        val = 2.0 * x[j]
-                    else:
-                        val = 2.0 * (1.0 - x[j])
+    #             elif map_type == 'tent':
+    #                 # Tent Map
+    #                 if x[j] < 0.5:
+    #                     val = 2.0 * x[j]
+    #                 else:
+    #                     val = 2.0 * (1.0 - x[j])
 
-                x[j] = val # Update state
-                chaos_matrix[i, j] = val
+    #             x[j] = val # Update state
+    #             chaos_matrix[i, j] = val
 
-        # 2. Map Chaotic Sequence from [0, 1] to [lb, ub]
-        for i in range(self.n):
-            for j in range(self.dim):
-                population[i, j] = self.lb[j] + chaos_matrix[i, j] * (self.ub[j] - self.lb[j])
+    #     # 2. Map Chaotic Sequence from [0, 1] to [lb, ub]
+    #     population = self.lb + chaos_matrix * (self.ub - self.lb)
 
-        return population
+    #     return population
 
     def levy_flight_jump(self):
         small_sigma_mu_numerator = math.gamma(1 + self.params['beta_levy_flight']) * (math.sin(math.pi * self.params['beta_levy_flight'] / 2))
@@ -413,8 +411,8 @@ class ssapm():
         t_0 = self.params['t_0']
         convergence_curve = []
         # percentage_to_reset = self.params['tau_stagnate'] * self.max_iter / 100
-        # current_pos = self.initialize()
-        current_pos = self.chaotic_initialization()
+        current_pos = self.initialize()
+        # current_pos = self.chaotic_initialization()
         velocities = np.zeros((self.n, self.dim))
         for i in range(0, self.n):
             fitness = self.obj_func(current_pos[i])
