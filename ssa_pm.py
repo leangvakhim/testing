@@ -410,7 +410,6 @@ class ssapm():
         prev_best_fitness = np.min(list_fitness)
         start_best_index = np.argmin(list_fitness)
         prev_best_pos = current_pos[start_best_index].copy()
-
         current_best_pos = prev_best_pos.copy()
         # print(f"List fitness: {list_fitness}")
         # print(f"previous best before loop: {prev_best_fitness:.4e}  ")
@@ -427,6 +426,7 @@ class ssapm():
                 # stagnate_count = 0
                 prev_best_fitness = current_best
                 current_best_pos = current_pos[current_best_index].copy()
+                prev_best_pos = current_best_pos.copy()
 
             # self.params['flag_stagnate'] = False
 
@@ -534,6 +534,10 @@ class ssapm():
                 if list_fitness[i] < current_best:
                     current_best = list_fitness[i]
                     current_best_pos = current_pos[i].copy()
+
+            if current_best < prev_best_fitness:
+                prev_best_fitness = current_best
+                prev_best_pos = current_best_pos.copy()
 
             current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
