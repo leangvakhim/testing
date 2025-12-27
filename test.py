@@ -21,7 +21,7 @@ params = {
     # 'small_sigma_ve': 1,
 
     # chaotic-rebirth
-    'chaotic_rebirth_mu': 4.0,
+    # 'chaotic_rebirth_mu': 4.0,
 
     # ATP
     'g_0': 100,
@@ -70,13 +70,23 @@ if val == 1:
     # print(f"Best fitness: {1 - best_fitness}")
     # print(f"Best pos: {best_pos}")
     # print(f"convergence curve: {convergence_curve}")
+
+    node_roles = []
+    for i in range(num_sensor):
+        # Example: First 20% are Producers, rest are Scroungers
+        if i < (0.2 * num_sensor):
+            node_roles.append("P")
+        else:
+            node_roles.append("S")
+
     cov = coverage(params['w'], params['h'], num_sensor, params['sensing_radius'], params['r_error'], best_pos_reshaped)
     # cov.calculate_probabilistics_coverage()
 
     true_coverage = cov.calculate_probabilistics_coverage()
-    # print(f"True Final Coverage: {true_coverage * 100:.2f}%")
+    print(f"True Final Coverage: {true_coverage * 100:.2f}%")
     # cov.plot_coverage(best_fitness)
-    cov.plot_coverage(1.0 - true_coverage)
+    cov.plot_coverage(1.0 - true_coverage, node_roles)
+    # cov.plot_coverage(convergence_curve[-1], node_roles)
     cov.plot_iterative_coverage(convergence_curve)
     # print(x_val)
 elif val == 2:

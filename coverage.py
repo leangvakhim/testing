@@ -15,11 +15,11 @@ class coverage():
         self.lambda_param = 0.5
         self.beta_param = 1
 
-        x_range = np.arange(0, self.w + 1, 1)
-        y_range = np.arange(0, self.h + 1, 1)
+        # x_range = np.arange(0, self.w + 1, 1)
+        # y_range = np.arange(0, self.h + 1, 1)
 
-        # x_range = np.arange(0, self.w, 1)
-        # y_range = np.arange(0, self.h, 1)
+        x_range = np.arange(0, self.w, 1)
+        y_range = np.arange(0, self.h, 1)
 
         X, Y = np.meshgrid(x_range, y_range)
         self.grid_points = np.column_stack((X.ravel(), Y.ravel()))
@@ -102,8 +102,8 @@ class coverage():
         plt.show()
 
 
-    def plot_coverage(self, best_fitness):
-        fig, ax = plt.subplots(figsize=(6,6))
+    def plot_coverage(self, best_fitness, node_status=None):
+        fig, ax = plt.subplots(figsize=(8,8))
 
         ax.set_xlim(0, self.w)
         ax.set_ylim(0, self.h)
@@ -130,7 +130,13 @@ class coverage():
 
             # Plot the sensor node center
             ax.plot(node[0], node[1], 'r.', markersize=5)
-            ax.text(node[0] + 0.5, node[1] + 0.5, str(i + 1), fontsize=9, color='black')
+            # ax.text(node[0] + 0.5, node[1] + 0.5, str(i + 1), fontsize=9, color='black')
+            label_text = str(i + 1)
+            if node_status is not None and i < len(node_status):
+                # Append the role to the text
+                label_text += f"\n({node_status[i]})"
+
+            ax.text(node[0] + 0.5, node[1] + 0.5, label_text, fontsize=8, color='black')
 
         legend_elements = [
             Patch(facecolor='forestgreen', edgecolor='none', alpha=0.3, label='Certainty Range'),

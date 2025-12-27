@@ -19,18 +19,6 @@ class ssapm():
         x = self.lb + np.random.rand(self.n, self.dim) * (self.ub - self.lb)
         return x
 
-    # def initialize(self):
-    #     x = np.zeros((self.n, self.dim))
-
-    #     primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53]
-    #     while len(primes) < self.dim:
-    #         primes.append(primes[-1] + 1)
-
-    #     r = np.sqrt(np.array(primes[:self.dim]))
-    #     for i in range(self.n):
-    #         x[i] = self.lb + (self.ub - self.lb) * ((r * (i + 1)) % 1)
-    #     return x
-
     # Main
     def obj_func(self, val):
         if self.func_name == 'coverage_optimization':
@@ -159,17 +147,17 @@ class ssapm():
         epsilon = self.params['epsilon']
         g_0 = self.params['g_0']
         alpha_gsa = self.params['alpha_gsa']
-        m_val = (f_worst - f_current) / (f_worst - f_best + epsilon)
-        m = np.array([m_val])
-        M = m / (sum(m) + epsilon)
+        # m_val = (f_worst - f_current) / (f_worst - f_best + epsilon)
+        # m = np.array([m_val])
+        # M = m / (sum(m) + epsilon)
         # print(f"M[0] is: {M[0]}")
         # calculate adaptive attraction coefficient
         G = g_0 * np.exp(-alpha_gsa * t)/self.max_iter
         # calculate euclidean distance
         R = np.linalg.norm(c_pos - c_best_pos)
         # calculate the acceleration
-        acceleration = G * M[0] * (c_best_pos - c_pos) / (R + epsilon)
-        # acceleration = G * (c_best_pos - c_pos) / (R + epsilon)
+        # acceleration = G * M[0] * (c_best_pos - c_pos) / (R ** 2 + epsilon)
+        acceleration = G * (c_best_pos - c_pos) / (R + epsilon)
         # calculate velocity of each sparrow
         velocity = np.random.rand() * c_velocities + acceleration
         # position update
@@ -323,84 +311,84 @@ class ssapm():
 
     #     return forces
 
-    def delaunay_repair(self, best_pos_flat):
-        num_nodes = self.params['num_nodes']
-        w = self.params['w']
-        h = self.params['h']
-        sensing_radius = self.params['sensing_radius']
+    # def delaunay_repair(self, best_pos_flat):
+    #     num_nodes = self.params['num_nodes']
+    #     w = self.params['w']
+    #     h = self.params['h']
+    #     sensing_radius = self.params['sensing_radius']
 
-        # Reshape to (N, 2)
-        nodes = best_pos_flat.reshape(num_nodes, 2)
+    #     # Reshape to (N, 2)
+    #     nodes = best_pos_flat.reshape(num_nodes, 2)
 
-        # 1. Compute Delaunay Triangulation
-        try:
-            tri = Delaunay(nodes)
-        except:
-            return best_pos_flat
+    #     # 1. Compute Delaunay Triangulation
+    #     try:
+    #         tri = Delaunay(nodes)
+    #     except:
+    #         return best_pos_flat
 
-        # 2. Find the Largest "Empty" Triangle
-        max_area = -1
-        target_pos = None
+    #     # 2. Find the Largest "Empty" Triangle
+    #     max_area = -1
+    #     target_pos = None
 
-        for simplex in tri.simplices:
-            pts = nodes[simplex]
+    #     for simplex in tri.simplices:
+    #         pts = nodes[simplex]
 
-            # Calculate Centroid of the triangle
-            centroid = np.mean(pts, axis=0)
+    #         # Calculate Centroid of the triangle
+    #         centroid = np.mean(pts, axis=0)
 
-            # Check bounds
-            if not (0 <= centroid[0] <= w and 0 <= centroid[1] <= h):
-                continue
+    #         # Check bounds
+    #         if not (0 <= centroid[0] <= w and 0 <= centroid[1] <= h):
+    #             continue
 
-            # Check if this triangle is actually a "Hole"
-            # (Distance from centroid to nearest node > sensing_radius)
-            dists = np.linalg.norm(pts - centroid, axis=1)
-            if np.min(dists) > sensing_radius * 0.9: # 0.9 factor for safety
+    #         # Check if this triangle is actually a "Hole"
+    #         # (Distance from centroid to nearest node > sensing_radius)
+    #         dists = np.linalg.norm(pts - centroid, axis=1)
+    #         if np.min(dists) > sensing_radius * 0.9: # 0.9 factor for safety
 
-                # Calculate Area
-                a, b, c = pts[0], pts[1], pts[2]
-                area = 0.5 * np.abs(np.cross(b-a, c-a))
+    #             # Calculate Area
+    #             a, b, c = pts[0], pts[1], pts[2]
+    #             area = 0.5 * np.abs(np.cross(b-a, c-a))
 
-                if area > max_area:
-                    max_area = area
-                    target_pos = centroid
+    #             if area > max_area:
+    #                 max_area = area
+    #                 target_pos = centroid
 
-        # If no significant hole found, return original
-        if target_pos is None:
-            return best_pos_flat
+    #     # If no significant hole found, return original
+    #     if target_pos is None:
+    #         return best_pos_flat
 
-        try:
-            # Add qhull_options="QJ" here as well
-            tri = Delaunay(nodes, qhull_options="QJ")
-        except:
-            # If it fails, just return the original position without repair
-            return best_pos_flat
+    #     try:
+    #         # Add qhull_options="QJ" here as well
+    #         tri = Delaunay(nodes, qhull_options="QJ")
+    #     except:
+    #         # If it fails, just return the original position without repair
+    #         return best_pos_flat
 
-        # 3. Find the "Worst" Node (Most Clustered/Redundant)
-        # We find the node that is closest to its neighbors
-        overlaps = np.zeros(num_nodes)
-        for i in range(num_nodes):
-            dist_sum = 0
-            count = 0
-            for j in range(num_nodes):
-                if i == j: continue
-                d = np.linalg.norm(nodes[i] - nodes[j])
-                if d < 2 * sensing_radius: # If overlapping
-                    overlaps[i] += 1
-                    dist_sum += d
-                    count += 1
-            # Penalize nodes with many close neighbors
-            if count > 0:
-                overlaps[i] = overlaps[i] + (1.0 / (dist_sum/count + 1e-5))
+    #     # 3. Find the "Worst" Node (Most Clustered/Redundant)
+    #     # We find the node that is closest to its neighbors
+    #     overlaps = np.zeros(num_nodes)
+    #     for i in range(num_nodes):
+    #         dist_sum = 0
+    #         count = 0
+    #         for j in range(num_nodes):
+    #             if i == j: continue
+    #             d = np.linalg.norm(nodes[i] - nodes[j])
+    #             if d < 2 * sensing_radius: # If overlapping
+    #                 overlaps[i] += 1
+    #                 dist_sum += d
+    #                 count += 1
+    #         # Penalize nodes with many close neighbors
+    #         if count > 0:
+    #             overlaps[i] = overlaps[i] + (1.0 / (dist_sum/count + 1e-5))
 
-        worst_node_idx = np.argmax(overlaps)
+    #     worst_node_idx = np.argmax(overlaps)
 
-        # 4. Move Worst Node to Target (Hole Center)
-        new_solution = best_pos_flat.copy()
-        new_solution[worst_node_idx * 2] = target_pos[0]
-        new_solution[worst_node_idx * 2 + 1] = target_pos[1]
+    #     # 4. Move Worst Node to Target (Hole Center)
+    #     new_solution = best_pos_flat.copy()
+    #     new_solution[worst_node_idx * 2] = target_pos[0]
+    #     new_solution[worst_node_idx * 2 + 1] = target_pos[1]
 
-        return new_solution
+    #     return new_solution
 
     def run(self):
         list_fitness = []
