@@ -289,43 +289,37 @@ class ssapm():
         Replaces the single objective function.
         Equation: Fitness = w1 * CoverageRate - w2 * OverlapArea + w3 * UniformityMetric
 
-        Note: Since the algorithm minimizes the objective function, we return the negative
-        of the calculated fitness (or inverted cost) so that maximizing the equation
-        minimizes the return value.
-
         Args:
             coverage_rate (float): The calculated probabilistic coverage (0.0 to 1.0).
-            current_pos (np.array): Positions of all nodes.
+            current_pos (np.array): Positions of all nodes (shape: num_nodes x 2).
 
         Returns:
             float: The combined fitness value to be minimized.
         """
         # Weights (default values if not in params)
-        w1 = self.params.get('w1', 1.0)  # Weight for Coverage
-        w2 = self.params.get('w2', 0.5)  # Weight for Overlap
-        w3 = self.params.get('w3', 0.5)  # Weight for Uniformity
+        w1 = self.params.get('w1', 1.0)
+        w2 = self.params.get('w2', 0.5)
+        w3 = self.params.get('w3', 0.5)
 
         # 1. Coverage Rate is passed in directly
 
         # 2. Calculate Overlap Area (Approximation)
-        # Total potential sensing area = N * pi * R^2
-        # Actual covered area = CoverageRate * Width * Height
-        # Overlap = Total Potential - Actual Covered
         r = self.params['sensing_radius']
         w_area = self.params['w']
         h_area = self.params['h']
 
-        total_potential_area = self.n * np.pi * (r**2)
+        # Use len(current_pos) to get the number of sensors, not self.n
+        num_nodes_local = len(current_pos)
+
+        total_potential_area = num_nodes_local * np.pi * (r**2)
         actual_covered_area = coverage_rate * w_area * h_area
         overlap_area = max(0, total_potential_area - actual_covered_area)
 
-        # Normalize overlap area to be comparable to coverage_rate (optional but recommended)
-        # Here we leave it raw as per the equation structure, but w2 should be tuned small.
-
         # 3. Calculate Uniformity Metric (Standard Deviation of inter-node distances)
         dists = []
-        for i in range(self.n):
-            for j in range(i + 1, self.n):
+        # Loop over the sensors (rows in current_pos), NOT the sparrow population
+        for i in range(num_nodes_local):
+            for j in range(i + 1, num_nodes_local):
                 d = np.linalg.norm(current_pos[i] - current_pos[j])
                 dists.append(d)
 
@@ -334,12 +328,10 @@ class ssapm():
         else:
             uniformity_metric = 0
 
-        # The Final Equation from the document:
-        # Fitness = w1 * Coverage - w2 * Overlap + w3 * Uniformity
+        # The Final Equation: Fitness = w1 * Coverage - w2 * Overlap + w3 * Uniformity
         final_fitness_score = (w1 * coverage_rate) - (w2 * overlap_area) + (w3 * uniformity_metric)
 
         # Return negative because the optimizer minimizes the function
-        # (Minimizing negative fitness == Maximizing positive fitness)
         return -final_fitness_score
 
     # def calculate_virtual_force(self, current_pos_flat):
