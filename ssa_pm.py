@@ -198,6 +198,150 @@ class ssapm():
 
         return c_pos
 
+    def calculate_anti_gravity_force(self, i, current_pos, neighbors_indices):
+        """
+        [Equation 2.1.3] Invert the Attraction (The anti-gravity)
+        New Proposed to replace the old 2.1.3.
+        Calculates a repulsion force from neighbors to disperse nodes instead of clustering them.
+
+        Args:
+            i (int): Index of the current sparrow (scrounger).
+            current_pos (np.array): All sparrow positions.
+            neighbors_indices (list): Indices of neighbors within 2 * Rs.
+
+        Returns:
+            np.array: The calculated repulsion force vector for sparrow i.
+        """
+        # Coefficients
+        k_repel = self.params.get('k_repel', 1.0)  # Repulsion gain coefficient
+        rs = self.params['sensing_radius']
+
+        force = np.zeros(self.dim)
+        pos_i = current_pos[i]
+
+        for j in neighbors_indices:
+            if i == j:
+                continue
+
+            pos_j = current_pos[j]
+            dist_vec = pos_i - pos_j
+            dist = np.linalg.norm(dist_vec)
+
+            # Neighbors are technically defined as nodes within 2*Rs
+            # We add a small epsilon to avoid division by zero
+            if dist < 2 * rs and dist > 0:
+                # u_ij is the unit vector pointing from Node j to Node i
+                u_ij = dist_vec / dist
+
+                # Formula: F = Sum( k_repel * (1/d^2) * u_ij )
+                force_magnitude = k_repel * (1.0 / (dist**2 + 1e-10))
+                force += force_magnitude * u_ij
+
+        return force
+
+    def deterministic_hard_expansion(self, i, current_pos, current_velocity):
+        """
+        [Equation 2.2.4] Deterministic Hard Expansion
+        New Proposed to replace the old Probabilistic Repulsion (Burn).
+        Ensures that any time two nodes come too close, they are forcefully separated.
+
+        Args:
+            i (int): Index of the current sparrow.
+            current_pos (np.array): All sparrow positions.
+            current_velocity (np.array): Current velocity of sparrow i.
+
+        Returns:
+            np.array: The updated velocity vector after applying hard expansion.
+        """
+        rs = self.params['sensing_radius']
+        # d_thresh is approx sqrt(3) * Rs
+        d_thresh = np.sqrt(3) * rs
+
+        # Gamma (push coefficient)
+        gamma = self.params.get('gamma', 0.1)
+
+        v_push_total = np.zeros(self.dim)
+        pos_i = current_pos[i]
+
+        # Iterate through all other nodes to check for collisions
+        for j in range(self.n):
+            if i == j:
+                continue
+
+            pos_j = current_pos[j]
+            dist = np.linalg.norm(pos_i - pos_j)
+
+            # IF d_ij < d_thresh, apply push
+            if dist < d_thresh:
+                # V_push = gamma * (x_i - x_j)
+                # The vector (x_i - x_j) points away from j, pushing i away.
+                v_push = gamma * (pos_i - pos_j)
+                v_push_total += v_push
+
+        # Update Velocity: v_i(t+1) = v_i(t) + V_push
+        new_velocity = current_velocity + v_push_total
+
+        return new_velocity
+
+    def calculate_modified_fitness(self, coverage_rate, current_pos):
+        """
+        [Equation 4.2] Modifying the fitness function
+        Replaces the single objective function.
+        Equation: Fitness = w1 * CoverageRate - w2 * OverlapArea + w3 * UniformityMetric
+
+        Note: Since the algorithm minimizes the objective function, we return the negative
+        of the calculated fitness (or inverted cost) so that maximizing the equation
+        minimizes the return value.
+
+        Args:
+            coverage_rate (float): The calculated probabilistic coverage (0.0 to 1.0).
+            current_pos (np.array): Positions of all nodes.
+
+        Returns:
+            float: The combined fitness value to be minimized.
+        """
+        # Weights (default values if not in params)
+        w1 = self.params.get('w1', 1.0)  # Weight for Coverage
+        w2 = self.params.get('w2', 0.5)  # Weight for Overlap
+        w3 = self.params.get('w3', 0.5)  # Weight for Uniformity
+
+        # 1. Coverage Rate is passed in directly
+
+        # 2. Calculate Overlap Area (Approximation)
+        # Total potential sensing area = N * pi * R^2
+        # Actual covered area = CoverageRate * Width * Height
+        # Overlap = Total Potential - Actual Covered
+        r = self.params['sensing_radius']
+        w_area = self.params['w']
+        h_area = self.params['h']
+
+        total_potential_area = self.n * np.pi * (r**2)
+        actual_covered_area = coverage_rate * w_area * h_area
+        overlap_area = max(0, total_potential_area - actual_covered_area)
+
+        # Normalize overlap area to be comparable to coverage_rate (optional but recommended)
+        # Here we leave it raw as per the equation structure, but w2 should be tuned small.
+
+        # 3. Calculate Uniformity Metric (Standard Deviation of inter-node distances)
+        dists = []
+        for i in range(self.n):
+            for j in range(i + 1, self.n):
+                d = np.linalg.norm(current_pos[i] - current_pos[j])
+                dists.append(d)
+
+        if len(dists) > 0:
+            uniformity_metric = np.std(dists)
+        else:
+            uniformity_metric = 0
+
+        # The Final Equation from the document:
+        # Fitness = w1 * Coverage - w2 * Overlap + w3 * Uniformity
+        final_fitness_score = (w1 * coverage_rate) - (w2 * overlap_area) + (w3 * uniformity_metric)
+
+        # Return negative because the optimizer minimizes the function
+        # (Minimizing negative fitness == Maximizing positive fitness)
+        return -final_fitness_score
+
     # def calculate_virtual_force(self, current_pos_flat):
 
     #     if 'num_nodes' not in self.params:
@@ -402,10 +546,27 @@ class ssapm():
         current_pos = self.initialize()
         # current_pos = self.chaotic_initialization()
         velocities = np.zeros((self.n, self.dim))
-        for i in range(0, self.n):
-            fitness = self.obj_func(current_pos[i])
-            list_fitness.append(fitness)
+
+        # for i in range(0, self.n):
+        #     fitness = self.obj_func(current_pos[i])
+        #     list_fitness.append(fitness)
             # print(f"Sparrow {i} Initial Fitness: {fitness}")
+
+        ## **
+        for i in range(0, self.n):
+            # 1. Get Base Coverage (obj_func returns 1 - coverage)
+            base_obj_val = self.obj_func(current_pos[i])
+            coverage_rate = 1.0 - base_obj_val
+
+            # 2. Reshape for fitness function (N_nodes x 2)
+            # Assuming dim = num_nodes * 2
+            num_nodes = self.params['num_nodes']
+            pos_nodes = current_pos[i].reshape(num_nodes, 2)
+
+            # 3. Calculate Modified Fitness
+            fitness = self.calculate_modified_fitness(coverage_rate, pos_nodes)
+            list_fitness.append(fitness)
+        ## **
 
         prev_best_fitness = np.min(list_fitness)
         start_best_index = np.argmin(list_fitness)
@@ -466,6 +627,7 @@ class ssapm():
             scrounger_count = self.n - producer_count
             sorted_indices = np.argsort(list_fitness)
             current_pos = current_pos[sorted_indices]
+            velocities = velocities[sorted_indices]
             list_fitness = np.array(list_fitness)
             list_fitness = list_fitness[sorted_indices]
 
@@ -499,21 +661,21 @@ class ssapm():
                     # else:
                     current_pos[i] = self.producer_update(current_pos[i], i)
 
-                    current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
-                    list_fitness[i] = self.obj_func(current_pos[i])
+                    # current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
+                    # list_fitness[i] = self.obj_func(current_pos[i])
 
-                    if list_fitness[i] < current_best:
-                        current_best = list_fitness[i]
-                        current_best_pos = current_pos[i].copy()
+                    # if list_fitness[i] < current_best:
+                    #     current_best = list_fitness[i]
+                    #     current_best_pos = current_pos[i].copy()
 
                 # scrounger update
                 else:
                     # gravitational attraction
-                    att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
+                    # att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
 
-                    # repulsion
-                    rep_pos_from_sa = self.thermal_repulsion(current_pos[i], att_pos_from_gsa, current_best_pos, r_heat, t_current)
-                    current_pos[i] = rep_pos_from_sa
+                    # # repulsion
+                    # rep_pos_from_sa = self.thermal_repulsion(current_pos[i], att_pos_from_gsa, current_best_pos, r_heat, t_current)
+                    # current_pos[i] = rep_pos_from_sa
 
                     # Calculate virtual force (repulsion)
                     # v_force = self.calculate_virtual_force(current_pos[i])
@@ -525,12 +687,52 @@ class ssapm():
                     # velocities[i] = 0.5 * velocities[i] + v_force
                     # current_pos[i] = current_pos[i] + velocities[i]
 
+                    ## **
+                    neighbors = []
+                    for j in range(self.n):
+                        if i == j: continue
+                        dist = np.linalg.norm(current_pos[i] - current_pos[j])
+                        if dist < 2 * self.params['sensing_radius']:
+                            neighbors.append(j)
+
+                    # Calculate Anti-Gravity Force
+                    force_repel = self.calculate_anti_gravity_force(i, current_pos, neighbors)
+
+                    # Calculate Acceleration (F = ma, assuming m=1)
+                    acceleration = force_repel
+
+                    # Update Velocity (v = v + a) - Simplified integration
+                    # You can add a random factor or inertia weight here if desired
+                    velocities[i] = velocities[i] + acceleration
+
+                    # Update Position
+                    current_pos[i] = current_pos[i] + velocities[i]
+
+                    # --- [Eq 2.2.4] Deterministic Hard Expansion (Replaces Thermal Repulsion) ---
+                    # Check for collisions and apply hard push
+                    velocities[i] = self.deterministic_hard_expansion(i, current_pos, velocities[i])
+                    # Re-apply velocity to position after hard expansion adjustment
+                    current_pos[i] = current_pos[i] + velocities[i]
+
+                    ## **
+
                 # vfa_forces = self.calculate_vfa_forces(current_pos)
                 # current_pos[i] = current_pos[i] + (vfa_forces[i] * learning_rate)
 
-                current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
-                list_fitness[i] = self.obj_func(current_pos[i])
+                # current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
+                # list_fitness[i] = self.obj_func(current_pos[i])
 
+                ## **
+                # ---------------- FITNESS UPDATE [Eq 4.2] ----------------
+                base_obj_val = self.obj_func(current_pos[i])
+                coverage_rate = 1.0 - base_obj_val
+
+                num_nodes = self.params['num_nodes']
+                pos_nodes = current_pos[i].reshape(num_nodes, 2)
+
+                list_fitness[i] = self.calculate_modified_fitness(coverage_rate, pos_nodes)
+
+                ## **
                 if list_fitness[i] < current_best:
                     current_best = list_fitness[i]
                     current_best_pos = current_pos[i].copy()
