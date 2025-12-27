@@ -91,13 +91,62 @@ class ssapm():
         new_pos = self.lb + z * (self.ub - self.lb)
         return new_pos
 
+    # def flare_burst_search(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
+    #     epsilon = self.params['epsilon']
+    #     s_min = self.params['s_min']
+    #     s_max = self.params['s_max']
+    #     a_min = self.params['a_min']
+    #     a_max = self.params['a_max']
+    #     num_danger = int(self.params['danger_p'] * self.n)
+    #     danger_indices = np.arange(self.n - num_danger, self.n)
+
+    #     fitness_best_danger = list_fitness[self.n - num_danger]
+    #     fitness_worst_danger = list_fitness[-1]
+
+    #     for i in danger_indices:
+    #         # Calculate Spark Parameters (Si and Ai)
+    #         normalized_fitness = (list_fitness[i] - fitness_best_danger) / (fitness_worst_danger - fitness_best_danger + epsilon)
+
+    #         spark_count = int(s_min + np.round((s_max - s_min) * normalized_fitness))
+    #         explosion_amplitude = a_min + (a_max - a_min) * normalized_fitness
+
+    #         local_best_spark_fitness = np.inf
+    #         local_best_spark_pos = None
+
+    #         # Generate Sparks (The Burst)
+    #         for k in range(spark_count):
+    #             # Random Direction Vector (-1 to 1)
+    #             random_vector = np.random.uniform(-1, 1, self.dim)
+
+    #             candidate_pos = current_pos[i] + explosion_amplitude * random_vector
+    #             candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
+    #             candidate_fitness = self.obj_func(candidate_pos)
+
+    #             if candidate_fitness < local_best_spark_fitness:
+    #                 local_best_spark_fitness = candidate_fitness
+    #                 local_best_spark_pos = candidate_pos.copy()
+
+    #         if local_best_spark_fitness < list_fitness[i]:
+    #             list_fitness[i] = local_best_spark_fitness
+    #             current_pos[i] = local_best_spark_pos
+
+    #             if local_best_spark_fitness < prev_best_fitness:
+    #                 prev_best_fitness = local_best_spark_fitness
+    #                 prev_best_pos = local_best_spark_pos.copy()
+
+    #     return prev_best_fitness, prev_best_pos
+
     def flare_burst_search(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
-        epsilon = self.params['epsilon']
+        epsilon = self.params.get('epsilon', 1e-10) # Use safe default if missing
         s_min = self.params['s_min']
         s_max = self.params['s_max']
         a_min = self.params['a_min']
         a_max = self.params['a_max']
+
         num_danger = int(self.params['danger_p'] * self.n)
+        # Ensure at least 1 danger sparrow if danger_p > 0
+        num_danger = max(1, num_danger)
+
         danger_indices = np.arange(self.n - num_danger, self.n)
 
         fitness_best_danger = list_fitness[self.n - num_danger]
@@ -105,7 +154,11 @@ class ssapm():
 
         for i in danger_indices:
             # Calculate Spark Parameters (Si and Ai)
-            normalized_fitness = (list_fitness[i] - fitness_best_danger) / (fitness_worst_danger - fitness_best_danger + epsilon)
+            numerator = list_fitness[i] - fitness_best_danger
+            denominator = fitness_worst_danger - fitness_best_danger + epsilon
+
+            # [Fix] Clip the ratio to [0, 1] to prevent explosion
+            normalized_fitness = np.clip(numerator / denominator, 0, 1)
 
             spark_count = int(s_min + np.round((s_max - s_min) * normalized_fitness))
             explosion_amplitude = a_min + (a_max - a_min) * normalized_fitness
@@ -120,6 +173,8 @@ class ssapm():
 
                 candidate_pos = current_pos[i] + explosion_amplitude * random_vector
                 candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
+
+                # Check bounds or use valid positions
                 candidate_fitness = self.obj_func(candidate_pos)
 
                 if candidate_fitness < local_best_spark_fitness:
