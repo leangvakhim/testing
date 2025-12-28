@@ -198,6 +198,32 @@ class ssapm():
 
         return c_pos
 
+    def update_scroungers(self, current_pos, pd_count, num_sensor, dim, global_best_position, global_worst_position):
+        L = np.ones((1, dim))
+
+        for i in range(pd_count, num_sensor):
+
+            # i > n/2 (Starving scroungers)
+            if i > num_sensor / 2:
+                Q = np.random.randn()
+                exponent_denominator = i ** 2
+                exponent_numerator = global_worst_position - current_pos[i, :]
+                exponent = exponent_numerator / exponent_denominator
+                current_pos[i, :] = Q * np.exp(exponent)
+            else:
+                A = np.ones((1, dim))
+                rand_indices = np.random.rand(dim) < 0.5
+                A[0, rand_indices] = -1
+
+                diff = np.abs(current_pos[i, :] - global_best_position)
+
+                C = np.sum(diff * A) / dim
+
+                step_simplified = C * L
+
+                current_pos[i, :] = global_best_position + step_simplified
+        return current_pos
+
     # def calculate_virtual_force(self, current_pos_flat):
 
     #     if 'num_nodes' not in self.params:
@@ -393,10 +419,10 @@ class ssapm():
     def run(self):
         list_fitness = []
         # stagnate_count = 0
-        heat_lambda = self.params['heat_lambda']
-        alpha_cool = self.params['alpha_sa']
-        r_base = self.params['r_base']
-        t_0 = self.params['t_0']
+        # heat_lambda = self.params['heat_lambda']
+        # alpha_cool = self.params['alpha_sa']
+        # r_base = self.params['r_base']
+        # t_0 = self.params['t_0']
         convergence_curve = []
         # percentage_to_reset = self.params['tau_stagnate'] * self.max_iter / 100
         current_pos = self.initialize()
@@ -475,46 +501,58 @@ class ssapm():
             fitness_current = list_fitness[scrounger_count]
 
             # calculate mean of population
-            mean_pos = np.mean(current_pos, axis=0)
+            # mean_pos = np.mean(current_pos, axis=0)
             # calculate diagonal length
-            d_length = np.sqrt(((self.ub - self.lb) ** 2) * self.dim)
+            # d_length = np.sqrt(((self.ub - self.lb) ** 2) * self.dim)
             # calculate distance from mean
-            d_from_m = np.sqrt(np.sum((current_pos - mean_pos) ** 2, axis=1))
+            # d_from_m = np.sqrt(np.sum((current_pos - mean_pos) ** 2, axis=1))
             # calculate total sum of distances
-            total_sum_d = np.sum(d_from_m)
+            # total_sum_d = np.sum(d_from_m)
             # calculate diversity
-            diversity = total_sum_d / (self.n * d_length)
+            # diversity = total_sum_d / (self.n * d_length)
             # calculate heat radius
-            r_heat = r_base * ((1 - diversity) ** heat_lambda)
+            # r_heat = r_base * ((1 - diversity) ** heat_lambda)
             # define the cooling schedule
-            t_current = t_0 * (alpha_cool ** t)
+            # t_current = t_0 * (alpha_cool ** t)
 
-            for i in range(self.n):
-                # producer update
-                if i < producer_count:
+            for i in range(producer_count):
+            # for i in range(self.n):
+            #     # producer update
+            #     if i < producer_count:
                     # check if already jump via Levy Flight
                     # if i != 0:
                     # if i == 0 and self.params['flag_stagnate']:
                     #     # print("Trigger")
                     #     continue
                     # else:
-                    current_pos[i] = self.producer_update(current_pos[i], i)
+                current_pos[i] = self.producer_update(current_pos[i], i)
 
-                    current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
-                    list_fitness[i] = self.obj_func(current_pos[i])
+                current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
+                list_fitness[i] = self.obj_func(current_pos[i])
 
-                    if list_fitness[i] < current_best:
-                        current_best = list_fitness[i]
-                        current_best_pos = current_pos[i].copy()
+                # if list_fitness[i] < current_best:
+                #     current_best = list_fitness[i]
+                #     current_best_pos = current_pos[i].copy()
 
                 # scrounger update
-                else:
+                # else:
+                current_pos = self.update_scroungers(current_pos, producer_count, self.n, self.dim, current_best_pos, current_pos[-1])
                     # gravitational attraction
-                    att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
-
+                    # * new
+                    # att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
+                    # current_pos[i] = att_pos_from_gsa
+                    # * old
+                    # att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
+                    # print(f"att pos from gsa: {att_pos_from_gsa}")
+                    # print(f"velocities: {velocities[i]}")
+                    # print(f"current pos: {current_pos[i]}")
+                    # print(f"fitness current: {fitness_current}")
                     # repulsion
-                    rep_pos_from_sa = self.thermal_repulsion(current_pos[i], att_pos_from_gsa, current_best_pos, r_heat, t_current)
-                    current_pos[i] = rep_pos_from_sa
+                    # * new
+                    # rep_pos_from_sa = self.thermal_repulsion(current_pos[i], current_best_pos, current_best_pos, r_heat, t_current)
+                    # * old
+                    # rep_pos_from_sa = self.thermal_repulsion(current_pos[i], att_pos_from_gsa, current_best_pos, r_heat, t_current)
+                    # current_pos[i] = rep_pos_from_sa
 
                     # Calculate virtual force (repulsion)
                     # v_force = self.calculate_virtual_force(current_pos[i])
@@ -532,9 +570,9 @@ class ssapm():
                 current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                 list_fitness[i] = self.obj_func(current_pos[i])
 
-                if list_fitness[i] < current_best:
-                    current_best = list_fitness[i]
-                    current_best_pos = current_pos[i].copy()
+                # if list_fitness[i] < current_best:
+                #     current_best = list_fitness[i]
+                #     current_best_pos = current_pos[i].copy()
 
             if current_best < prev_best_fitness:
                 prev_best_fitness = current_best
