@@ -28,7 +28,7 @@ params = {
     'alpha_gsa': 20,
     't_0': 100,
     'alpha_sa': 0.99,
-    'epsilon': 1e-10,
+    'epsilon': 1e-50,
     'r_base': 5,
     'heat_lambda': 2,
     'st':0.8,
