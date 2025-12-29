@@ -38,8 +38,8 @@ params = {
     'a_min':0.01,
     'a_max':0.4,
     'danger_p': 0.3,
-    'k_sat': 1.0,
-    'gamma': 2.0,
+    # 'k_sat': 1.0,
+    # 'gamma': 2.0,
 
     # Dynamic Role (producer <=> scrounger)
     'r_start': 0.8,

@@ -528,6 +528,194 @@ class ssapm():
         else:
             return self.original_flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
+    def calculate_density_and_repulsion(self, flat_pos):
+        """
+        Calculates Local Density (rho) and Repulsive Vector (V_rep) for each sensor
+        within a single sparrow's solution vector.
+        """
+        num_nodes = self.params['num_nodes']
+        Rs = self.params['sensing_radius']
+        epsilon = self.params.get('epsilon', 1e-8)
+
+        # DA-R-FBS Constants
+        D_th = 2.0 * Rs  # Crowding Threshold
+
+        # Reshape flat position to (num_nodes, 2)
+        nodes = flat_pos.reshape(num_nodes, 2)
+
+        # Initialize output arrays
+        densities = np.zeros(num_nodes)
+        repulsion_vecs = np.zeros((num_nodes, 2))
+
+        # Compute pairwise distance matrix (N x N)
+        # diff[i, j] = nodes[i] - nodes[j]
+        diff = nodes[:, np.newaxis, :] - nodes[np.newaxis, :, :]
+        dists = np.linalg.norm(diff, axis=2)
+
+        # 1. Calculate Density (Equation 3.0.1)
+        # Mask for neighbors within threshold (exclude self-loop dist=0)
+        neighbor_mask = (dists < D_th) & (dists > 0)
+
+        # Kernel function: 1 - (d/D_th)^2 for neighbors, 0 otherwise
+        kernels = np.zeros_like(dists)
+        kernels[neighbor_mask] = 1.0 - (dists[neighbor_mask] / D_th) ** 2
+
+        # Sum kernels to get density per node
+        densities = np.sum(kernels, axis=1)
+
+        # 2. Calculate Repulsive Forces (Equation 3.0.2)
+        # Force magnitude: exp(-d/Rs)
+        force_mags = np.zeros_like(dists)
+        force_mags[neighbor_mask] = np.exp(-dists[neighbor_mask] / Rs)
+
+        # Normalize direction vectors: (Xi - Xj) / (dist + eps)
+        # Note: diff is Xi - Xj. We want force ON Xi FROM Xj, which is directed along (Xi - Xj).
+        # We need to broadcast the magnitude division carefully.
+
+        # Avoid division by zero for self-interaction (where dist=0)
+        safe_dists = dists.copy()
+        safe_dists[safe_dists == 0] = 1.0
+
+        normalized_dirs = diff / safe_dists[:, :, np.newaxis]
+
+        # Apply magnitude and mask
+        # force_contributions[i, j] is force on i from j
+        force_contributions = normalized_dirs * force_mags[:, :, np.newaxis]
+
+        # Sum contributions from all j to get total force on i
+        total_forces = np.sum(force_contributions, axis=1)
+
+        # 3. Normalize to Unit Vectors (Equation 3.0.3)
+        force_norms = np.linalg.norm(total_forces, axis=1, keepdims=True)
+
+        # Avoid division by zero if force is 0
+        nonzero_force = force_norms > 0
+        repulsion_vecs = np.zeros_like(total_forces)
+        # Use np.divide with where to handle the broadcasting correctly
+        repulsion_vecs = np.divide(total_forces, force_norms + epsilon, where=nonzero_force)
+
+        # Fallback: If isolated (force=0), random unit vector?
+        # For now, 0 vector is fine as they won't be pushed by repulsion.
+
+        return densities, repulsion_vecs
+
+    def generate_da_r_fbs_candidate(self, current_flat_pos, densities, repulsion_vecs, base_amplitude):
+        """
+        Generates a candidate solution using Density-Dependent Amplitude
+        and Hybrid Direction Vector.
+        """
+        num_nodes = self.params['num_nodes']
+        gamma = self.params.get('gamma', 1.5)  # Density Gain
+        omega = self.params.get('omega', 0.7)  # Repulsion Weight
+
+        nodes = current_flat_pos.reshape(num_nodes, 2)
+
+        # 1. Calculate Adaptive Amplitude per Sensor (Equation 3.2 Modified)
+        # A'_i = A_base * (1 + gamma * rho_i)
+        # shape: (num_nodes, 1) for broadcasting
+        amplitudes = base_amplitude * (1.0 + gamma * densities)
+        amplitudes = amplitudes[:, np.newaxis]
+
+        # 2. Generate Hybrid Direction (Equation 3.3 Modified)
+        # Random vector component
+        r_rand = np.random.uniform(-1, 1, (num_nodes, 2))
+
+        # Mix Random and Repulsive
+        # D_hybrid = (1 - omega) * R_rand + omega * V_rep
+        d_hybrid = (1.0 - omega) * r_rand + omega * repulsion_vecs
+
+        # 3. Apply Displacement
+        scale_factor = (self.ub - self.lb) # Assuming uniform bounds
+
+        # New Pos = Old Pos + Amplitude * Direction
+        displacement = amplitudes * d_hybrid * scale_factor
+        new_nodes = nodes + displacement
+
+        return new_nodes.flatten()
+
+    def density_aware_repulsive_fbs(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
+        """
+        Replaces standard Flare Burst Search with Density-Aware logic.
+        Call this function instead of original_flare_burst_search.
+        """
+        epsilon = self.params.get('epsilon', 1e-8)
+        s_min = self.params['s_min']
+        s_max = self.params['s_max']
+        a_min = self.params['a_min']
+        a_max = self.params['a_max']
+        danger_p = self.params['danger_p']
+
+        # Identify Danger Sparrows (worst performing percentage)
+        num_danger = int(danger_p * self.n)
+        danger_indices = np.arange(self.n - num_danger, self.n)
+
+        fitness_best_danger = list_fitness[self.n - num_danger]
+        fitness_worst_danger = list_fitness[-1]
+
+        # Pre-calculate fitness range for normalization
+        fit_range = fitness_worst_danger - fitness_best_danger + epsilon
+
+        for i in danger_indices:
+            # 1. Calculate Physics of the Sparrow's solution (Density & Repulsion)
+            rho_vec, v_rep_vec = self.calculate_density_and_repulsion(current_pos[i])
+
+            # 2. Calculate Base Metrics based on Sparrow's Global Fitness
+            normalized_fitness = (list_fitness[i] - fitness_best_danger) / fit_range
+
+            # Spark count (same as original)
+            spark_count = int(s_min + np.round((s_max - s_min) * normalized_fitness))
+
+            # Base Amplitude (Scalar for the whole sparrow)
+            # This will be boosted individually for each sensor in generate_da_r_fbs_candidate
+            base_amplitude = a_min + (a_max - a_min) * normalized_fitness
+
+            local_best_spark_fitness = np.inf
+            local_best_spark_pos = None
+
+            # 3. Generate Sparks (The Burst)
+            for k in range(spark_count):
+
+                # Generate candidate using Physics-Based Logic
+                candidate_pos = self.generate_da_r_fbs_candidate(
+                    current_pos[i],
+                    rho_vec,
+                    v_rep_vec,
+                    base_amplitude
+                )
+
+                # Boundary Handling (Reflection)
+                # 1. Reflect Lower Bound violations
+                below_lb = candidate_pos < self.lb
+                candidate_pos[below_lb] = self.lb + (self.lb - candidate_pos[below_lb])
+
+                # 2. Reflect Upper Bound violations
+                above_ub = candidate_pos > self.ub
+                candidate_pos[above_ub] = self.ub - (candidate_pos[above_ub] - self.ub)
+
+                # 3. Final safety clip
+                candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
+
+                # Evaluate
+                candidate_fitness = self.obj_func(candidate_pos)
+
+                if candidate_fitness < local_best_spark_fitness:
+                    local_best_spark_fitness = candidate_fitness
+                    local_best_spark_pos = candidate_pos.copy()
+
+            # 4. Greedy Selection (Update Sparrow if spark is better)
+            if local_best_spark_fitness < list_fitness[i]:
+                list_fitness[i] = local_best_spark_fitness
+                current_pos[i] = local_best_spark_pos
+
+                # Check Global Best
+                if local_best_spark_fitness < prev_best_fitness:
+                    prev_best_fitness = local_best_spark_fitness
+                    prev_best_pos = local_best_spark_pos.copy()
+
+        return prev_best_fitness, prev_best_pos
+
+
+
     def run(self):
         list_fitness = []
         # stagnate_count = 0
@@ -695,7 +883,8 @@ class ssapm():
                 prev_best_pos = current_best_pos.copy()
 
             # current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
-            current_best, current_best_pos = self.original_flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            current_best, current_best_pos = self.density_aware_repulsive_fbs(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            # current_best, current_best_pos = self.original_flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
             # spark_pos = self.delaunay_repair(current_best_pos)
             # spark_fitness = self.obj_func(spark_pos)
@@ -718,6 +907,8 @@ class ssapm():
             #     current_pos[current_best_index] = spark_pos.copy()
 
             convergence_curve.append(current_best)
+            # if t % 10 == 0:
+            #     print(f"current best at the iteration {t}: {(1 - ( current_best * 100)):.2f}%")
 
         # print(f"prev_best_fitness: {prev_best_fitness:.4e}")
         # print(f"convergence_curve: {convergence_curve}")
@@ -726,4 +917,5 @@ class ssapm():
         # print(f"current_best at the bottom: {current_best:.4e}")
 
         # return prev_best_fitness, prev_best_pos, convergence_curve
+
         return current_best, current_best_pos, convergence_curve
