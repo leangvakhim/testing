@@ -37,7 +37,7 @@ params = {
     's_max':30,
     'a_min':0.01,
     'a_max':0.4,
-    'danger_p': 0.3,
+    'danger_p': 0.4,
     # 'k_sat': 1.0,
     # 'gamma': 2.0,
 
@@ -54,10 +54,10 @@ params = {
 if val == 1:
     print("Coverage testing")
     pop_size = 50
-    max_iter = 100
+    max_iter = 300
     lb = 0
     ub = 50
-    num_sensor = 20
+    num_sensor = 25
     dim = num_sensor * 2
     params['w'] = 50
     params['h'] = 50

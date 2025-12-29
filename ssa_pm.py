@@ -91,6 +91,56 @@ class ssapm():
     #     new_pos = self.lb + z * (self.ub - self.lb)
     #     return new_pos
 
+    def chaotic_initialization(self, map_type='logistic'):
+        """
+        Generates an initial population using chaotic maps (Logistic or Tent)
+        to ensure a more uniform spread compared to standard random initialization.
+
+        This replaces the standard random initialization.
+        """
+        population = np.zeros((self.n, self.dim))
+
+        # 1. Initialize chaotic sequence vector (one seed per dimension)
+        # We start with random values between 0 and 1
+        x = np.random.rand(self.dim)
+
+        # Retrieve mu from params or default to 4.0 (standard for full chaos in Logistic map)
+        # Ensure 'chaotic_rebirth_mu' is defined in your params dictionary in test.py
+        mu = self.params.get('chaotic_rebirth_mu', 4.0)
+
+        # 2. Iterate to fill the population matrix
+        # We run independent chaotic maps for each dimension
+        for i in range(self.n):
+            for j in range(self.dim):
+                val = x[j]
+
+                if map_type == 'logistic':
+                    # Logistic Map: x_new = mu * x * (1 - x)
+                    # Prevention of fixed points (0, 0.25, 0.5, 0.75, 1.0) to ensure chaos continues
+                    if val in [0, 0.25, 0.5, 0.75, 1.0]:
+                         val = (val + 0.13579) % 1.0
+
+                    val = mu * val * (1.0 - val)
+
+                elif map_type == 'tent':
+                    # Tent Map
+                    if val < 0.5:
+                        val = 2.0 * val
+                    else:
+                        val = 2.0 * (1.0 - val)
+
+                # Update the state variable x for the next step
+                x[j] = val
+
+                # Assign to population matrix
+                population[i, j] = val
+
+        # 3. Map Chaotic Sequence from [0, 1] to [lb, ub]
+        # Formula: lb + chaos_val * (ub - lb)
+        population = self.lb + population * (self.ub - self.lb)
+
+        return population
+
     def original_flare_burst_search(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
         epsilon = self.params['epsilon']
         s_min = self.params['s_min']
@@ -647,7 +697,9 @@ class ssapm():
 
         # Identify Danger Sparrows (worst performing percentage)
         num_danger = int(danger_p * self.n)
-        danger_indices = np.arange(self.n - num_danger, self.n)
+        # danger_indices = np.arange(self.n - num_danger, self.n)
+        danger_indices = np.random.choice(self.n, num_danger, replace=False)
+        # danger_indices = np.arange(0, num_danger)
 
         fitness_best_danger = list_fitness[self.n - num_danger]
         fitness_worst_danger = list_fitness[-1]
