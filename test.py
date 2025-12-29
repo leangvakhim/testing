@@ -24,14 +24,13 @@ params = {
     # 'chaotic_rebirth_mu': 4.0,
 
     # ATP
-    'g_0': 100,
-    'alpha_gsa': 20,
-    't_0': 100,
-    'alpha_sa': 0.99,
-    'epsilon': 1e-50,
-    'r_base': 5,
-    'heat_lambda': 2,
-    'st':0.8,
+    # 'g_0': 100,
+    # 'alpha_gsa': 20,
+    # 't_0': 100,
+    # 'alpha_sa': 0.99,
+
+    # 'r_base': 5,
+    # 'heat_lambda': 2,
 
     # FBS
     's_min':2,
@@ -39,11 +38,15 @@ params = {
     'a_min':0.01,
     'a_max':0.1,
     'danger_p': 0.3,
+    'k_sat': 1.5,
+    'gamma': 2.0,
 
     # Dynamic Role (producer <=> scrounger)
     'r_start': 0.8,
     'r_end': 0.2,
     'dynamic_role_lambda': 2,
+    'st':0.8,
+    'epsilon': 1e-50,
 
     # 'w_overlap': 0.1,
 }
