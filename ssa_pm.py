@@ -429,7 +429,7 @@ class ssapm():
         dist = np.linalg.norm(diff, axis=2)
 
         # calculate overlap matrix
-        overlap_ratios = np.clip((2 * r_eff - dists) / (2 * r_eff), 0, 1)
+        overlap_ratios = np.clip((2 * r_eff - dist) / (2 * r_eff), 0, 1)
         # remove self-overlap (diagonal is always 1.0, set to 0)
         np.fill_diagonal(overlap_ratios, 0)
         # sum overlaps for each node
@@ -465,9 +465,10 @@ class ssapm():
         epsilon = self.params['epsilon']
         s_min = self.params['s_min']
         s_max = self.params['s_max']
+        danger_p = self.params['danger_p']
 
         # select danger sparrows
-        num_danger = int(self.params['num_nodes'] * self.n)
+        num_danger = int(danger_p * self.n)
         danger_indices = np.arange(self.n - num_danger, self.n)
 
         for i in danger_indices:
@@ -684,6 +685,7 @@ class ssapm():
                 prev_best_pos = current_best_pos.copy()
 
             current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            # current_best, current_best_pos = self.original_flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
             # spark_pos = self.delaunay_repair(current_best_pos)
             # spark_fitness = self.obj_func(spark_pos)
