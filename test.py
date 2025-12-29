@@ -33,12 +33,12 @@ params = {
     # 'heat_lambda': 2,
 
     # FBS
-    's_min':2,
-    's_max':10,
+    's_min':5,
+    's_max':30,
     'a_min':0.01,
-    'a_max':0.1,
+    'a_max':0.4,
     'danger_p': 0.3,
-    'k_sat': 1.5,
+    'k_sat': 1.2,
     'gamma': 2.0,
 
     # Dynamic Role (producer <=> scrounger)
