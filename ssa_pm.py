@@ -75,22 +75,7 @@ class ssapm():
                 current_pos[i, :] = global_best_position + step_simplified
         return current_pos
 
-    # -------------------------------------------------------------------------
-    # UNIFIED PHYSICS ENGINE (Works for both WSN Nodes and Benchmark Sparrows)
-    # -------------------------------------------------------------------------
-
     def calculate_density_and_repulsion(self, particles, sensing_radius):
-        """
-        Universal Physics Calculation (Eq 3.0.1 - 3.0.3).
-        Inputs:
-          - particles: Array of shape (N, D).
-                       For WSN: N=num_nodes, D=2.
-                       For Benchmark: N=pop_size, D=dim.
-          - sensing_radius: The interaction range (Rs).
-        Returns:
-          - densities: Array of shape (N,)
-          - repulsion_vecs: Array of shape (N, D)
-        """
         epsilon = self.params.get('epsilon', 1e-8)
 
         # Crowding Threshold
@@ -134,9 +119,6 @@ class ssapm():
         return densities, repulsion_vecs
 
     def generate_da_r_fbs_candidate(self, particles, densities, repulsion_vecs, base_amplitude):
-        """
-        Applies Eq 3.2 (Density Multiplier) and Eq 3.3 (Hybrid Direction)
-        """
         gamma = self.params.get('gamma', 1.5)  # Density Gain
         omega = self.params.get('omega', 0.7)  # Repulsion Weight
 
@@ -157,11 +139,6 @@ class ssapm():
         return new_particles
 
     def density_aware_repulsive_fbs(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
-        """
-        Unified Function:
-        - If WSN (num_nodes exists): Applies physics to SENSOR NODES (Internal Density).
-        - If Benchmark: Applies physics to SPARROWS (Population Density).
-        """
         epsilon = self.params.get('epsilon', 1e-8)
         s_min = self.params['s_min']
         s_max = self.params['s_max']
@@ -169,25 +146,17 @@ class ssapm():
         a_max = self.params['a_max']
         danger_p = self.params['danger_p']
 
-        # We select either Random Sparrows (Generic Diversity) or Worst Sparrows (Traditional FBS)
-        # Using Random selection is generally safer for escaping traps in both contexts
         num_danger = int(danger_p * self.n)
 
-        # Use simple indexing for now (Worst sparrows), but feel free to change to random
-        danger_indices = np.arange(self.n - num_danger, self.n)
+        # danger_indices = np.arange(self.n - num_danger, self.n)
+        danger_indices = np.random.choice(self.n, num_danger, replace=False)
         # danger_indices = np.random.choice(self.n, num_danger, replace=False) # Alternative: Random
 
         fitness_best_danger = np.min(list_fitness)
         fitness_worst_danger = np.max(list_fitness)
         fit_range = fitness_worst_danger - fitness_best_danger + epsilon
 
-        # ------------------------------------------------------
-        # MODE DETECTION: Check if we are doing WSN or Benchmark
-        # ------------------------------------------------------
         if 'num_nodes' in self.params:
-            # === WSN MODE: INTERNAL REPULSION ===
-            # The "Particles" are the Sensors within one Sparrow
-
             num_nodes = self.params['num_nodes']
             Rs = self.params['sensing_radius']
 
@@ -228,19 +197,15 @@ class ssapm():
                         prev_best_pos = local_best_spark_pos.copy()
 
         else:
-            # === BENCHMARK MODE: POPULATION REPULSION ===
-            # The "Particles" are the Sparrows themselves
-
-            # Dynamic Interaction Radius (e.g., 5% of search space)
+            # Dynamic Interaction Radius
             space_diag = np.linalg.norm(self.ub - self.lb) if isinstance(self.lb, np.ndarray) else (self.ub - self.lb) * np.sqrt(self.dim)
             Rs = 0.05 * space_diag
 
-            # 1. Calculate Physics (Population Density)
-            # We calculate this ONCE for the whole population
+            # Calculate Physics (Population Density)
             rho_pop, v_rep_pop = self.calculate_density_and_repulsion(current_pos, Rs)
 
             for i in danger_indices:
-                # 3. FBS Logic
+                # FBS Logic
                 normalized_fitness = (list_fitness[i] - fitness_best_danger) / fit_range
                 spark_count = int(s_min + np.round((s_max - s_min) * normalized_fitness))
                 base_amplitude = a_min + (a_max - a_min) * normalized_fitness
@@ -249,8 +214,6 @@ class ssapm():
                 local_best_spark_pos = None
 
                 # Get this sparrow's physics data
-                # We need to reshape v_rep_pop[i] to (1, dim) to match generate_da_r_fbs signature expectation
-                # or modify generate func. Let's adapt inputs slightly.
                 p_i = current_pos[i].reshape(1, self.dim)
                 rho_i = np.array([rho_pop[i]])
                 v_rep_i = v_rep_pop[i].reshape(1, self.dim)
@@ -334,8 +297,7 @@ class ssapm():
                 prev_best_fitness = current_best
                 prev_best_pos = current_pos[current_best_idx].copy()
 
-            # 3. Density-Aware Repulsive FBS (Unified)
-            # This works for both WSN (Node Physics) and Benchmark (Sparrow Physics)
+            # 3. Density-Aware Repulsive FBS
             current_best, current_best_pos = self.density_aware_repulsive_fbs(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
             convergence_curve.append(current_best)

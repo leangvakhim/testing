@@ -54,10 +54,10 @@ params = {
 if val == 1:
     print("Coverage testing")
     pop_size = 50
-    max_iter = 100
+    max_iter = 300
     lb = 0
     ub = 50
-    num_sensor = 25
+    num_sensor = 20
     dim = num_sensor * 2
     params['w'] = 50
     params['h'] = 50
