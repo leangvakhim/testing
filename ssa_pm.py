@@ -492,6 +492,16 @@ class ssapm():
                 candidate_pos = self.generate_od_fbs_candidate(current_pos[i], omega_vector)
 
                 # Clip to boundaries
+                # candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
+                # 1. Reflect Lower Bound violations
+                below_lb = candidate_pos < self.lb
+                candidate_pos[below_lb] = self.lb + (self.lb - candidate_pos[below_lb])
+
+                # 2. Reflect Upper Bound violations
+                above_ub = candidate_pos > self.ub
+                candidate_pos[above_ub] = self.ub - (candidate_pos[above_ub] - self.ub)
+
+                # 3. Final safety clip (just in case a node bounced too far, though rare)
                 candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
 
                 # Evaluate
@@ -638,7 +648,7 @@ class ssapm():
 
                 # scrounger update
                 # else:
-            current_pos = self.update_scroungers(current_pos, producer_count, self.n, self.dim, current_best_pos, current_pos[-1])
+                current_pos = self.update_scroungers(current_pos, producer_count, self.n, self.dim, current_best_pos, current_pos[-1])
                     # gravitational attraction
                     # * new
                     # att_pos_from_gsa, velocities[i] = self.thermal_attraction(fitness_worst, fitness_current, fitness_best, t, current_pos[i], current_best_pos, velocities[i])
@@ -669,12 +679,12 @@ class ssapm():
                 # vfa_forces = self.calculate_vfa_forces(current_pos)
                 # current_pos[i] = current_pos[i] + (vfa_forces[i] * learning_rate)
 
-            for i in range(producer_count, self.n):
+            # for i in range(producer_count, self.n):
+            #     current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
+            #     list_fitness[i] = self.obj_func(current_pos[i])
+
                 current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                 list_fitness[i] = self.obj_func(current_pos[i])
-
-                # current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
-                # list_fitness[i] = self.obj_func(current_pos[i])
 
                 # if list_fitness[i] < current_best:
                 #     current_best = list_fitness[i]
@@ -684,8 +694,8 @@ class ssapm():
                 prev_best_fitness = current_best
                 prev_best_pos = current_best_pos.copy()
 
-            current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
-            # current_best, current_best_pos = self.original_flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            # current_best, current_best_pos = self.flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            current_best, current_best_pos = self.original_flare_burst_search(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
             # spark_pos = self.delaunay_repair(current_best_pos)
             # spark_fitness = self.obj_func(spark_pos)
