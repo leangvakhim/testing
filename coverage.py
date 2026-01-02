@@ -155,3 +155,42 @@ class coverage():
 
         plt.show()
 
+    def plot_results_combined(self, convergence_curve, best_fitness):
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
+
+        # Left Plot: Convergence
+        coverage_history = [(1 - fitness) * 100 for fitness in convergence_curve]
+        iterations = np.arange(1, len(coverage_history) + 1)
+        ax1.plot(iterations, coverage_history, color='b', linewidth=2)
+        ax1.set_title('Coverage Rate Evolution')
+        ax1.set_xlabel('Iteration')
+        ax1.set_ylabel('Coverage Rate (%)')
+        ax1.set_ylim(70, 100)
+        ax1.set_yticks(np.arange(70, 101, 3))
+        ax1.grid(True, linestyle='--', alpha=0.6)
+
+        # Right Plot: Deployment
+        r_certain = self.sensing_radius - self.r_error
+        r_max = self.sensing_radius + self.r_error
+
+        for node in self.nodes_pos:
+            circle_max = plt.Circle(node, r_max, color='palegreen', fill=True, alpha=0.2, linewidth=0)
+            ax2.add_artist(circle_max)
+            circle_certain = plt.Circle(node, r_certain, color='forestgreen', fill=True, alpha=0.3, linewidth=0)
+            ax2.add_artist(circle_certain)
+            ax2.plot(node[0], node[1], 'r.', markersize=5)
+
+        ax2.set_aspect('equal')
+        ax2.set_title(f'Final Deployment (Coverage: {(1 - best_fitness) * 100:.2f}%)')
+        ax2.set_xlim(0, self.w)
+        ax2.set_ylim(0, self.h)
+        ax2.grid(True, linestyle='--', alpha=0.6)
+
+        all_x = [s[0] for s in self.nodes_pos]
+        all_y = [s[1] for s in self.nodes_pos]
+        ax2.set_xlim(min(all_x) - r_max, max(all_x) + r_max)
+        ax2.set_ylim(min(all_y) - r_max, max(all_y) + r_max)
+
+        plt.tight_layout()
+        plt.show()
+

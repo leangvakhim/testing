@@ -76,7 +76,7 @@ class ssapm():
         return current_pos
 
     def calculate_density_and_repulsion(self, particles, sensing_radius):
-        epsilon = self.params.get('epsilon', 1e-8)
+        epsilon = self.params['epsilon']
 
         # Crowding Threshold
         D_th = 2.0 * sensing_radius
@@ -115,12 +115,11 @@ class ssapm():
 
         repulsion_vecs = np.zeros_like(total_forces)
         repulsion_vecs = np.divide(total_forces, force_norms + epsilon, where=nonzero_force)
-
         return densities, repulsion_vecs
 
     def generate_da_r_fbs_candidate(self, particles, densities, repulsion_vecs, base_amplitude):
-        gamma = self.params.get('gamma', 1.5)  # Density Gain
-        omega = self.params.get('omega', 0.7)  # Repulsion Weight
+        gamma = self.params['gamma']  # Density Gain
+        omega = self.params['omega']  # Repulsion Weight
 
         # 1. Calculate Adaptive Amplitude (Eq 3.2)
         # A'_i = A_base * (1 + gamma * rho_i)
@@ -139,7 +138,7 @@ class ssapm():
         return new_particles
 
     def density_aware_repulsive_fbs(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
-        epsilon = self.params.get('epsilon', 1e-8)
+        epsilon = self.params['epsilon']
         s_min = self.params['s_min']
         s_max = self.params['s_max']
         a_min = self.params['a_min']
