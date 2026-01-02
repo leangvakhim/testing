@@ -37,7 +37,7 @@ params = {
     's_max':30,
     'a_min':0.01,
     'a_max':0.4,
-    'danger_p': 0.4,
+    'danger_p': 0.1,
     # 'k_sat': 1.0,
     # 'gamma': 2.0,
 

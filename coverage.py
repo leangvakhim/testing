@@ -131,12 +131,12 @@ class coverage():
             # Plot the sensor node center
             ax.plot(node[0], node[1], 'r.', markersize=5)
             # ax.text(node[0] + 0.5, node[1] + 0.5, str(i + 1), fontsize=9, color='black')
-            label_text = str(i + 1)
-            if node_status is not None and i < len(node_status):
-                # Append the role to the text
-                label_text += f"\n({node_status[i]})"
+            # label_text = str(i + 1)
+            # if node_status is not None and i < len(node_status):
+            #     # Append the role to the text
+            #     label_text += f"\n({node_status[i]})"
 
-            ax.text(node[0] + 0.5, node[1] + 0.5, label_text, fontsize=8, color='black')
+            # ax.text(node[0] + 0.5, node[1] + 0.5, label_text, fontsize=8, color='black')
 
         legend_elements = [
             Patch(facecolor='forestgreen', edgecolor='none', alpha=0.3, label='Certainty Range'),
