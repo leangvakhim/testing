@@ -56,7 +56,7 @@ if val == 1:
     # cov.plot_coverage(1.0 - true_coverage, node_roles)
     # cov.plot_coverage(convergence_curve[-1], node_roles)
     # cov.plot_iterative_coverage(convergence_curve)
-    cov.plot_results_combined(convergence_curve, best_fitness)
+    cov.plot_results_combined(convergence_curve, best_fitness, name="SSA")
     # print(x_val)
 elif val == 2:
     print("Benchmark testing")

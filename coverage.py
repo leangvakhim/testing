@@ -155,7 +155,7 @@ class coverage():
 
         plt.show()
 
-    def plot_results_combined(self, convergence_curve, best_fitness):
+    def plot_results_combined(self, convergence_curve, best_fitness, name=None):
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
 
         # Left Plot: Convergence
@@ -181,7 +181,7 @@ class coverage():
             ax2.plot(node[0], node[1], 'r.', markersize=5)
 
         ax2.set_aspect('equal')
-        ax2.set_title(f'Final Deployment (Coverage: {(1 - best_fitness) * 100:.2f}%)')
+        ax2.set_title(f'{name} (Coverage: {(1 - best_fitness) * 100:.2f}%)')
         ax2.set_xlim(0, self.w)
         ax2.set_ylim(0, self.h)
         ax2.grid(True, linestyle='--', alpha=0.6)

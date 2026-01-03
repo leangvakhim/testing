@@ -70,7 +70,7 @@ if val == 1:
     # cov.plot_coverage(1.0 - true_coverage, node_roles)
     # cov.plot_coverage(convergence_curve[-1], node_roles)
     # cov.plot_iterative_coverage(convergence_curve)
-    cov.plot_results_combined(convergence_curve, best_fitness)
+    cov.plot_results_combined(convergence_curve, best_fitness, name="DAR-SSA")
     # print(x_val)
 elif val == 2:
     print("Benchmark testing")
@@ -79,14 +79,14 @@ elif val == 2:
     # f4: "max"          f5: "rosenbrock"      f6: "step"
     # f7: "quartic"      f8: "schwefel_2_26"   f9: "rastrigin"
     # f10: "ackley"      f11: "griewank"
-    times = 10
+    times = 30
     # lb = -30
     # ub = 30
     # dim = 30
     pop_size = 50
     max_iter = 500
     list_val = []
-    func_name = "sphere"
+    func_name = "griewank"
     func, lb, ub, dim, target = benchmark.get_function(func_name)
 
     # CEC 2017 (F1 - F30)
