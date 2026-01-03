@@ -86,7 +86,7 @@ elif val == 2:
     pop_size = 50
     max_iter = 500
     list_val = []
-    func_name = "rosenbrock"
+    func_name = "sphere"
     func, lb, ub, dim, target = benchmark.get_function(func_name)
 
     # CEC 2017 (F1 - F30)
