@@ -78,6 +78,7 @@ class efssa():
                 c_pos[i, :] = c_pos[i, :] * np.exp(exponent)
             else:
                 c_pos[i, :] = c_pos[i, :] + Q * L
+        return c_pos
 
     def update_scroungers(self, c_pos, pd_count, global_best_position, global_worst_position):
         L = np.ones((1, self.dim))
@@ -96,6 +97,7 @@ class efssa():
                 C = np.sum(diff * A) / self.dim
                 step_simplified = C * L
                 c_pos[i, :] = global_best_position + step_simplified
+            return c_pos
 
     def danger_aware(self, c_pos, fitness_value, sd_count, global_best_fitness, global_best_position, global_worst_fitness, global_worst_position):
         epsilon = self.params['epsilon']
@@ -116,6 +118,7 @@ class efssa():
                 numerator = np.abs(X_i - global_worst_position)
                 denominator = (f_i - global_worst_fitness) + epsilon
                 c_pos[i, :] = X_i + K * (numerator / denominator)
+            return c_pos
 
     def run(self):
         pd_percent = 0.2
@@ -124,24 +127,32 @@ class efssa():
         sd_count = int(self.n * sd_percent)
         convergence_curve = []
 
-        # current_pos = self.initialization()
+        # 1. Initialize population (Uncommented and assigned to self.population)
+        self.population = self.initialization()
+
+        # 2. Calculate initial fitness for the population
+        self.fitness = np.array([self.obj_func(x) for x in self.population])
+
+        # 3. Initialize global bests (Required for elite_reverse_strategy)
+        self.global_best_fit = np.min(self.fitness)
+        self.global_best_pos = self.population[np.argmin(self.fitness)].copy()
+
+        prev_best_fitness = self.global_best_fit
+        prev_best_pos = self.global_best_pos.copy()
+        current_best_pos = self.global_best_pos.copy()
+
+        # 4. Now it is safe to call elite_reverse_strategy
         self.elite_reverse_strategy()
-        sorted_indices = np.argsort(self.fitness)[::-1]
-        self.population = self.population[sorted_indices]
-        self.fitness = self.fitness[sorted_indices]
-        # list_fitness = []
-        # for i in range(0, self.n):
-        #     fitness = self.obj_func(self.population[i])
-        #     list_fitness.append(fitness)
 
-        prev_best_fitness = np.min(self.fitness)
-        prev_best_pos = self.population[np.argmin(self.fitness)].copy()
-        current_best_pos = prev_best_pos.copy()
+        # Re-evaluate best after elite strategy
+        current_best_fit_after_elite = np.min(self.fitness)
+        if current_best_fit_after_elite < prev_best_fitness:
+            self.global_best_fit = current_best_fit_after_elite
+            self.global_best_pos = self.population[np.argmin(self.fitness)].copy()
+            prev_best_fitness = self.global_best_fit
+            prev_best_pos = self.global_best_pos.copy()
 
-        if self.fitness[0] > self.global_best_fit:
-            self.global_best_fit = self.fitness[0]
-            self.global_best_pos = copy.deepcopy(self.population[0])
-
+        # Main Loop
         for t in tqdm(range(self.max_iter), desc="EFSSA Progress: "):
             current_best = np.min(self.fitness)
             current_best_index = np.argmin(self.fitness)
@@ -152,31 +163,31 @@ class efssa():
                 prev_best_fitness = current_best
                 prev_best_pos = current_best_pos.copy()
             else:
-                # Keep tracking the global best
                 prev_best_pos = self.population[np.argmin(self.fitness)].copy()
 
+            # Sort population
             sorted_indices = np.argsort(self.fitness)
             self.population = self.population[sorted_indices]
             self.fitness = self.fitness[sorted_indices]
 
-            current_global_best_position = self.population[current_best_index, :].copy()
-            current_global_best_fitness = self.fitness[current_best_index]
-            current_global_worst_position = self.population[current_worst_index, :].copy()
-            current_global_worst_fitness = self.fitness[current_worst_index]
+            current_global_best_position = self.population[0, :].copy() # Best is at index 0 after sort
+            current_global_best_fitness = self.fitness[0]
+            current_global_worst_position = self.population[-1, :].copy()
+            current_global_worst_fitness = self.fitness[-1]
 
             global_worst_position = self.population[current_worst_index, :].copy()
 
             # Equation 3 - Update producers
-            self.update_producers(self.population, self.max_iter, pd_count)
-            # current_pos = self.update_producers(current_pos, current_best_index, self.max_iter, st, pd_count, self.dim)
+            # Using the return value version (see part 2 below)
+            self.population = self.update_producers(self.population, self.max_iter, pd_count)
+
             for i in range(pd_count, self.n):
                 self.population[i] = np.clip(self.population[i], self.lb, self.ub)
                 self.fitness[i] = self.obj_func(self.population[i])
 
             # Equation 4 - Update scroungers
-            # update_scroungers(self, c_pos, pd_count, global_best_position, global_worst_position):
-            self.update_scroungers(self.population, pd_count, current_global_best_position, global_worst_position)
-            # current_pos = self.update_scroungers(current_pos, current_best_index, pd_count, self.max_iter, self.n, self.dim, current_global_best_position, global_worst_position)
+            self.population = self.update_scroungers(self.population, pd_count, current_global_best_position, global_worst_position)
+
             for i in range(pd_count, self.n):
                 self.population[i] = np.clip(self.population[i], self.lb, self.ub)
                 self.fitness[i] = self.obj_func(self.population[i])
@@ -188,7 +199,9 @@ class efssa():
                 prev_best_pos = self.population[current_best_idx].copy()
 
             # Equation 5 - Danger aware sparrows
+            # Note: danger_aware usually modifies in place, but can be updated to return
             self.danger_aware(self.population, self.fitness, sd_count, current_global_best_fitness, current_global_best_position, current_global_worst_fitness, current_global_worst_position)
+
             for i in range(0, self.n):
                 self.population[i] = np.clip(self.population[i], self.lb, self.ub)
                 self.fitness[i] = self.obj_func(self.population[i])
@@ -201,4 +214,5 @@ class efssa():
             convergence_curve.append(current_best)
 
         return current_best, current_best_pos, convergence_curve
+
 
