@@ -105,57 +105,133 @@ class efssa():
                 c_pos[i, :] = c_pos[i, :] + Q * L
         return c_pos
 
+    # def update_scroungers(self, c_pos, pd_count, global_best_position, global_worst_position):
+    #     L = np.ones((1, self.dim))
+    #     for i in range(pd_count, self.n):
+    #         if i > self.n / 2:
+    #             Q = np.random.randn()
+    #             exponent_denominator = (i - pd_count + 1) ** 2 # Avoid div by zero or huge scaling? Paper says i^2
+    #             # Standard SSA implementation usually uses just i^2 or similar
+    #             exponent_numerator = global_worst_position - c_pos[i, :]
+    #             exponent = exponent_numerator / (i**2)
+    #             c_pos[i, :] = Q * np.exp(exponent)
+    #         else:
+    #             # Eq 10 part 2
+    #             A = np.ones((1, self.dim))
+    #             rand_indices = np.random.rand(self.dim) < 0.5
+    #             A[0, rand_indices] = -1
+
+    #             # A+ = A.T * (A * A.T)^(-1). Since A is 1xD with +/-1, A*A.T = dim.
+    #             # So A+ = A.T / dim
+    #             # Term is: |X - Xbest| * A+ * L
+    #             # Dimensions: (1xD) * (Dx1) * (1xD)
+
+    #             diff = np.abs(c_pos[i, :] - global_best_position)
+    #             # Dot product (1xD) * (Dx1) results in scalar
+    #             term1 = np.dot(diff, A.T) / self.dim
+
+    #             step_simplified = term1 * L # Scalar * Vector of ones
+    #             c_pos[i, :] = global_best_position + step_simplified
+    #     return c_pos
+
+    # def update_scroungers(self, c_pos, pd_count, global_best_position, global_worst_position):
+    #     for i in range(pd_count, self.n):
+    #         if i > self.n / 2:
+    #             # ... (Existing worst-case logic is fine) ...
+    #             Q = np.random.randn()
+    #             exponent = (global_worst_position - c_pos[i, :]) / (i**2)
+    #             c_pos[i, :] = Q * np.exp(exponent)
+    #         else:
+    #             # FIX: Use element-wise update instead of scalar dot product
+    #             # Standard SSA simplification for A+ * L is often just a random sign per dimension
+    #             # or a coefficient.
+    #             diff = np.abs(c_pos[i, :] - global_best_position)
+
+    #             # Generate random signs (+1 or -1) for each dimension
+    #             A = np.random.choice([-1, 1], size=self.dim)
+
+    #             # Element-wise update: X_best + |diff| * sign * (1/dim)?
+    #             # Many implementations simplify A+L to just random signs or Normal dist.
+    #             # Let's stick closer to the intent: direction randomization.
+    #             c_pos[i, :] = global_best_position + diff * A * (1.0 / self.dim) # Or just diff * A for stronger exploration
+
+    #             # OR standard OPFUNU/Python SSA implementation style:
+    #             # c_pos[i, :] = global_best_position + np.random.normal(0, 1, self.dim) * np.abs(c_pos[i, :] - global_best_position)
+    #     return c_pos
+
     def update_scroungers(self, c_pos, pd_count, global_best_position, global_worst_position):
-        L = np.ones((1, self.dim))
+        # L = np.ones((1, self.dim)) # Remove this
         for i in range(pd_count, self.n):
             if i > self.n / 2:
                 Q = np.random.randn()
-                exponent_denominator = (i - pd_count + 1) ** 2 # Avoid div by zero or huge scaling? Paper says i^2
-                # Standard SSA implementation usually uses just i^2 or similar
-                exponent_numerator = global_worst_position - c_pos[i, :]
-                exponent = exponent_numerator / (i**2)
+                # Use scalar math for exponent, applied to whole vector
+                exponent = (global_worst_position - c_pos[i, :]) / (i**2)
                 c_pos[i, :] = Q * np.exp(exponent)
             else:
-                # Eq 10 part 2
-                A = np.ones((1, self.dim))
-                rand_indices = np.random.rand(self.dim) < 0.5
-                A[0, rand_indices] = -1
-
-                # A+ = A.T * (A * A.T)^(-1). Since A is 1xD with +/-1, A*A.T = dim.
-                # So A+ = A.T / dim
-                # Term is: |X - Xbest| * A+ * L
-                # Dimensions: (1xD) * (Dx1) * (1xD)
-
+                # Element-wise random update (Standard SSA interpretation)
+                # Instead of Scalar dot product
                 diff = np.abs(c_pos[i, :] - global_best_position)
-                # Dot product (1xD) * (Dx1) results in scalar
-                term1 = np.dot(diff, A.T) / self.dim
 
-                step_simplified = term1 * L # Scalar * Vector of ones
-                c_pos[i, :] = global_best_position + step_simplified
+                # Randomized direction coefficient per dimension
+                direction = np.random.choice([-1, 1], size=self.dim)
+
+                # Update
+                c_pos[i, :] = global_best_position + diff * direction * (1.0 / self.dim)
         return c_pos
 
     def danger_aware(self, c_pos, fitness_value, sd_count, global_best_fitness, global_best_position, global_worst_fitness, global_worst_position):
         epsilon = self.params['epsilon']
         best_index = np.argmin(fitness_value)
-
-        # Randomly select sparrows to be aware of danger
         danger_indices = np.random.choice(self.n, sd_count, replace=False)
 
         for i in danger_indices:
             f_i = fitness_value[i]
-            X_i = c_pos[i, :]
+            X_i = c_pos[i, :].copy()
 
             if f_i > global_best_fitness:
-                c_pos[i, :] = self.firefly_move(current=i, target=best_index)
+                # Calculate new position but don't commit yet
+                new_pos = self.firefly_move(current=i, target=best_index)
 
-            # Middle sparrow (is the best) -> Moves away from itself (Exploration)
-            # Use floating point tolerance for equality check
+                # Greedy check (Crucial for convergence)
+                new_fit = self.obj_func(new_pos)
+                if new_fit < f_i:
+                    c_pos[i, :] = new_pos
+                    fitness_value[i] = new_fit # Update fitness array locally
+
             elif np.abs(f_i - global_best_fitness) < 1e-9:
                 K = np.random.uniform(-1, 1)
                 numerator = np.abs(X_i - global_worst_position)
                 denominator = (f_i - global_worst_fitness) + epsilon
                 c_pos[i, :] = X_i + K * (numerator / denominator)
         return c_pos
+
+    # def danger_aware(self, c_pos, fitness_value, sd_count, global_best_fitness, global_best_position, global_worst_fitness, global_worst_position):
+    #     epsilon = self.params['epsilon']
+    #     best_index = np.argmin(fitness_value)
+
+    #     # Randomly select sparrows to be aware of danger
+    #     danger_indices = np.random.choice(self.n, sd_count, replace=False)
+
+    #     for i in danger_indices:
+    #         f_i = fitness_value[i]
+    #         X_i = c_pos[i, :].copy()
+
+    #         if f_i > global_best_fitness:
+    #             new_pos = self.firefly_move(current=i, target=best_index)
+    #             new_fitness = self.obj_func(new_pos)
+    #             if new_fitness < f_i:
+    #                 c_pos[i, :] = new_pos
+    #                 fitness_value[i] = new_fitness # Update fitness immediately
+    #             # Else: Keep X_i (do nothing)
+
+    #         # Middle sparrow (is the best) -> Moves away from itself (Exploration)
+    #         # Use floating point tolerance for equality check
+    #         elif np.abs(f_i - global_best_fitness) < 1e-9:
+    #             K = np.random.uniform(-1, 1)
+    #             numerator = np.abs(X_i - global_worst_position)
+    #             denominator = (f_i - global_worst_fitness) + epsilon
+    #             c_pos[i, :] = X_i + K * (numerator / denominator)
+    #     return c_pos
 
     def run(self):
         pd_percent = 0.2
@@ -223,9 +299,23 @@ class efssa():
                 self.population[i] = np.clip(self.population[i], self.lb, self.ub)
                 self.fitness[i] = self.obj_func(self.population[i])
 
-            # Record Best
-            current_best = np.min(self.fitness)
-            current_best_pos = self.population[np.argmin(self.fitness)].copy()
-            convergence_curve.append(current_best)
+            current_min_fit = np.min(self.fitness)
+            current_min_idx = np.argmin(self.fitness)
 
-        return current_best, current_best_pos, convergence_curve
+            if current_min_fit > current_global_best_fitness:
+                # The population lost the best position due to random moves. Restore it.
+                # Replace the worst individual with the historical best
+                worst_idx = np.argmax(self.fitness)
+                self.population[worst_idx, :] = current_global_best_position.copy()
+                self.fitness[worst_idx] = current_global_best_fitness
+            else:
+                # Population has a new best, update historical records
+                current_global_best_fitness = current_min_fit
+                current_global_best_position = self.population[current_min_idx, :].copy()
+
+            # Record Best
+            # current_best = np.min(self.fitness)
+            # current_best_pos = self.population[np.argmin(self.fitness)].copy()
+            convergence_curve.append(current_global_best_fitness)
+
+        return current_global_best_fitness, current_global_best_position, convergence_curve
