@@ -76,7 +76,7 @@ class efssa():
         st = self.params['st']
         alpha = np.random.rand()
 
-        for i in range(pd_count, self.n):
+        for i in range(pd_count):
             if R2 < st:
                 exponent = - (i + 1) / (alpha * iter_max)
                 c_pos[i, :] = c_pos[i, :] * np.exp(exponent)
@@ -161,19 +161,19 @@ class efssa():
         prev_best_pos = self.global_best_pos.copy()
         current_best_pos = self.global_best_pos.copy()
 
-        # 4. Now it is safe to call elite_reverse_strategy
-        self.elite_reverse_strategy()
-
-        # Re-evaluate best after elite strategy
-        current_best_fit_after_elite = np.min(self.fitness)
-        if current_best_fit_after_elite < prev_best_fitness:
-            self.global_best_fit = current_best_fit_after_elite
-            self.global_best_pos = self.population[np.argmin(self.fitness)].copy()
-            prev_best_fitness = self.global_best_fit
-            prev_best_pos = self.global_best_pos.copy()
-
         # Main Loop
         for t in tqdm(range(self.max_iter), desc="EFSSA Progress: "):
+            # 4. Now it is safe to call elite_reverse_strategy
+            self.elite_reverse_strategy()
+
+            # Re-evaluate best after elite strategy
+            current_best_fit_after_elite = np.min(self.fitness)
+            if current_best_fit_after_elite < prev_best_fitness:
+                self.global_best_fit = current_best_fit_after_elite
+                self.global_best_pos = self.population[np.argmin(self.fitness)].copy()
+                prev_best_fitness = self.global_best_fit
+                prev_best_pos = self.global_best_pos.copy()
+
             current_best = np.min(self.fitness)
             current_best_index = np.argmin(self.fitness)
             current_worst = np.max(self.fitness)
