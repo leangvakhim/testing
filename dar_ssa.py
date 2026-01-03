@@ -2,9 +2,6 @@ import numpy as np
 from benchmark import benchmark
 from tqdm import tqdm
 from coverage import coverage
-from scipy.spatial import Voronoi, Delaunay
-from scipy.stats import qmc
-import math
 
 class darssa():
     def __init__(self, lb, ub, dim, n, max_iter, params, func_name):
@@ -45,7 +42,7 @@ class darssa():
         current_role = r_end + (r_start - r_end) * (1 - ((t / self.max_iter) ** dynamic_role_lambda))
         return current_role
 
-    def producer_update(self, c_pos, i):
+    # def producer_update(self, c_pos, i):
         r_2 = np.random.rand()
         alpha = np.random.rand()
         L = np.ones(self.dim)
@@ -58,24 +55,39 @@ class darssa():
             c_pos = c_pos + Q * L
         return c_pos
 
-    def update_scroungers(self, current_pos, pd_count, num_sensor, dim, global_best_position, global_worst_position):
-        L = np.ones((1, dim))
-        for i in range(pd_count, num_sensor):
-            if i > num_sensor / 2:
+    def update_producers(self, c_pos, iter_max, pd_count):
+        R2 = np.random.rand()
+        L = np.ones(self.dim)
+        Q = np.random.normal()
+        st = self.params['st']
+        alpha = np.random.rand()
+
+        for i in range(pd_count, self.n):
+            if R2 < st:
+                exponent = - (i + 1) / (alpha * iter_max)
+                c_pos[i, :] = c_pos[i, :] * np.exp(exponent)
+            else:
+                c_pos[i, :] = c_pos[i, :] + Q * L
+        return c_pos
+
+    def update_scroungers(self, c_pos, pd_count, global_best_position, global_worst_position):
+        L = np.ones((1, self.dim))
+        for i in range(pd_count, self.n):
+            if i > self.n / 2:
                 Q = np.random.randn()
                 exponent_denominator = i ** 2
-                exponent_numerator = global_worst_position - current_pos[i, :]
+                exponent_numerator = global_worst_position - c_pos[i, :]
                 exponent = exponent_numerator / exponent_denominator
-                current_pos[i, :] = Q * np.exp(exponent)
+                c_pos[i, :] = Q * np.exp(exponent)
             else:
-                A = np.ones((1, dim))
-                rand_indices = np.random.rand(dim) < 0.5
+                A = np.ones((1, self.dim))
+                rand_indices = np.random.rand(self.dim) < 0.5
                 A[0, rand_indices] = -1
-                diff = np.abs(current_pos[i, :] - global_best_position)
-                C = np.sum(diff * A) / dim
+                diff = np.abs(c_pos[i, :] - global_best_position)
+                C = np.sum(diff * A) / self.dim
                 step_simplified = C * L
-                current_pos[i, :] = global_best_position + step_simplified
-        return current_pos
+                c_pos[i, :] = global_best_position + step_simplified
+        return c_pos
 
     def calculate_density_and_repulsion(self, particles, sensing_radius):
         epsilon = self.params['epsilon']
@@ -139,7 +151,7 @@ class darssa():
 
         return new_particles
 
-    def density_aware_repulsive_fbs(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
+    def density_aware_repulsive_dar(self, current_pos, list_fitness, prev_best_fitness, prev_best_pos):
         epsilon = self.params['epsilon']
         s_min = self.params['s_min']
         s_max = self.params['s_max']
@@ -246,7 +258,6 @@ class darssa():
         list_fitness = []
         convergence_curve = []
         current_pos = self.initialize()
-        velocities = np.zeros((self.n, self.dim))
 
         for i in range(0, self.n):
             fitness = self.obj_func(current_pos[i])
@@ -257,7 +268,7 @@ class darssa():
         prev_best_pos = current_pos[start_best_index].copy()
         current_best_pos = prev_best_pos.copy()
 
-        for t in tqdm(range(0, self.max_iter), desc="Progress: "):
+        for t in tqdm(range(0, self.max_iter), desc="DAR-SSA Progress: "):
             current_best = np.min(list_fitness)
             current_best_index = np.argmin(list_fitness)
 
@@ -274,32 +285,30 @@ class darssa():
             # Sort population
             sorted_indices = np.argsort(list_fitness)
             current_pos = current_pos[sorted_indices]
-            velocities = velocities[sorted_indices]
             list_fitness = np.array(list_fitness)
             list_fitness = list_fitness[sorted_indices]
 
             # 1. Update Producers
-            for i in range(producer_count):
-                current_pos[i] = self.producer_update(current_pos[i], i)
-                current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
-                list_fitness[i] = self.obj_func(current_pos[i])
-
-            # 2. Update Scroungers
-            current_pos = self.update_scroungers(current_pos, producer_count, self.n, self.dim, prev_best_pos, current_pos[-1])
-
+            current_pos = self.update_producers(current_pos, self.max_iter, producer_count)
             for i in range(producer_count, self.n):
                 current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
                 list_fitness[i] = self.obj_func(current_pos[i])
 
-            # Update Global Best before FBS
+            # 2. Update Scroungers
+            current_pos = self.update_scroungers(current_pos, producer_count, prev_best_pos, current_pos[-1])
+            for i in range(producer_count, self.n):
+                current_pos[i] = np.clip(current_pos[i], self.lb, self.ub)
+                list_fitness[i] = self.obj_func(current_pos[i])
+
+            # Update Global Best before DAR
             current_best = np.min(list_fitness)
             current_best_idx = np.argmin(list_fitness)
             if current_best < prev_best_fitness:
                 prev_best_fitness = current_best
                 prev_best_pos = current_pos[current_best_idx].copy()
 
-            # 3. Density-Aware Repulsive FBS
-            current_best, current_best_pos = self.density_aware_repulsive_fbs(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
+            # 3. Density-Aware Repulsive DAR
+            current_best, current_best_pos = self.density_aware_repulsive_dar(current_pos, list_fitness, prev_best_fitness, prev_best_pos)
 
             convergence_curve.append(current_best)
 
