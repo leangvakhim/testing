@@ -84,6 +84,21 @@ class efssa():
                 c_pos[i, :] = c_pos[i, :] + Q * L
         return c_pos
 
+    # def update_producers(self, c_pos, iter_max, pd_count, current_iter):
+    #     R2 = np.random.rand()
+    #     L = np.ones(self.dim)
+    #     Q = np.random.normal()
+    #     st = self.params['st']
+    #     alpha = np.random.rand()
+
+    #     for i in range(pd_count):
+    #         if R2 < st:
+    #             exponent = - (current_iter + 1) / (alpha * iter_max)
+    #             c_pos[i, :] = c_pos[i, :] * np.exp(exponent)
+    #         else:
+    #             c_pos[i, :] = c_pos[i, :] + Q * L
+    #     return c_pos
+
     def update_scroungers(self, c_pos, pd_count, global_best_position, global_worst_position):
         L = np.ones((1, self.dim))
         for i in range(pd_count, self.n):
@@ -185,6 +200,7 @@ class efssa():
             # Equation 3 - Update producers
             # Using the return value version (see part 2 below)
             self.population = self.update_producers(self.population, self.max_iter, pd_count)
+            # self.population = self.update_producers(self.population, self.max_iter, pd_count, t)
 
             for i in range(pd_count, self.n):
                 self.population[i] = np.clip(self.population[i], self.lb, self.ub)
