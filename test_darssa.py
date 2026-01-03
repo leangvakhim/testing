@@ -1,4 +1,4 @@
-from efssa import efssa
+from dar_ssa import darssa
 from coverage import coverage
 from benchmark import benchmark
 import numpy as np
@@ -12,8 +12,22 @@ print("2. Benchmark testing (CEC 2017/2020/2022)")
 val = int(input("Enter opt: "))
 
 params = {
+    # DAR
+    's_min':5,
+    's_max':30,
+    'a_min':0.01,
+    'a_max':0.4,
+    'danger_p': 0.1,
+    'gamma': 1.2,
+    # 'gamma': 1.5,
+    'omega': 0.7,
+
+    # Dynamic Role (producer <=> scrounger)
+    'r_start': 0.8,
+    'r_end': 0.2,
+    'dynamic_role_lambda': 2,
+    'st':0.8,
     'epsilon': 1e-8,
-    'st': 0.8,
 }
 
 if val == 1:
@@ -31,7 +45,7 @@ if val == 1:
     params['num_nodes'] = num_sensor
     func_name='coverage_optimization'
     # x = lb + np.random.rand(num_sensor, dim) * (ub - lb)
-    testing = efssa(lb, ub, dim, pop_size, max_iter, params, func_name)
+    testing = darssa(lb, ub, dim, pop_size, max_iter, params, func_name)
     # x_val = testing.initialize()
     best_fitness, best_pos, convergence_curve = testing.run()
     best_pos_reshaped = best_pos.reshape(num_sensor, 2)
@@ -72,7 +86,7 @@ elif val == 2:
     pop_size = 50
     max_iter = 500
     list_val = []
-    func_name = "sphere"
+    func_name = "rosenbrock"
     func, lb, ub, dim, target = benchmark.get_function(func_name)
 
     # CEC 2017 (F1 - F30)
@@ -119,7 +133,7 @@ elif val == 2:
     #     print(f"F{f_id:<4} | {mean_val:.4e} | {std_val:4e} | {best_val:4e} | {worst_val:4e}")
 
     for _ in range(times):
-        testing = efssa(lb, ub, dim, pop_size, max_iter, params, func_name)
+        testing = darssa(lb, ub, dim, pop_size, max_iter, params, func_name)
         best_fitness, best_pos, convergence_curve = testing.run()
         list_val.append(best_fitness)
     mean_val = np.mean(list_val)
