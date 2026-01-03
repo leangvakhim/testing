@@ -6,29 +6,62 @@ class benchmark():
         self.ub = ub
         self.dim = dim
 
-    def sphere(self, pos):
-        return np.sum(pos**2)
+    def get_function(func_name):
+        if func_name == "sphere" or func_name == "f1":
+            return benchmark.sphere_function, -100, 100, 30, 0.0
+        elif func_name == "schwefel_2_21" or func_name == "f2":
+            return benchmark.schwefel_2_21_function, -10, 10, 30, 0.0
+        elif func_name == "schwefel_2_22" or func_name == "f3":
+            return benchmark.schwefel_2_22_function, -100, 100, 30, 0.0
+        elif func_name == "max" or func_name == "f4":
+            return benchmark.max_function, -100, 100, 30, 0.0
+        elif func_name == "rosenbrock" or func_name == "f5":
+            return benchmark.rosenbrock_function, -30, 30, 30, 0.0
+        elif func_name == "step" or func_name == "f6":
+            return benchmark.step_function, -100, 100, 30, 0.0
+        elif func_name == "quartic" or func_name == "f7":
+            return benchmark.quartic_function, -1.28, 1.28, 30, 0.0
+        elif func_name == "schwefel_2_26" or func_name == "f8":
+            return benchmark.schwefel_2_26_function, -500, 500, 30, -418.9829
+        elif func_name == "rastrigin" or func_name == "f9":
+            return benchmark.rastrigin_function, -5.12, 5.12, 30, 0.0
+        elif func_name == "ackley" or func_name == "f10":
+            return benchmark.ackley_function, -32, 32, 30, 0.0
+        elif func_name == "griewank" or func_name == "f11":
+            return benchmark.griewank_function, -600, 600, 30, 0.0
+        # elif func_name == "levy" or func_name == "f12":
+        #     return benchmark.levy_function, -50, 50, 30, 0.0
+            # fixed dimension
+        # elif func_name == "six-hump-camel" or func_name == "f13":
+        #     return benchmark.F13_function, -5, 5, 2, -1.0316
+        # elif func_name == "kowalik" or func_name == "f17":
+        #     return benchmark.F17_function, -5, 5, 4, 0.000307
+        # elif func_name == "shekel" or func_name == "f18":
+        #     return benchmark.F18_function, 0, 1, 3, -3.86
+        else:
+            raise ValueError(f"Function '{func_name}' not found. Options: Sphere, Schwefel-1, Rosenbrock, Ackley, etc.")
+
 
     # Sphere function
-    def F1_function(self, pos):
+    def sphere_function(self, pos):
         return np.sum(pos ** 2)
 
     # Schwefel's function 2.21
-    def F2_function(self, pos):
+    def schwefel_2_21_function(self, pos):
         return np.sum(np.abs(pos)) + np.prod(np.abs(pos))
 
     # Schwefel's Problem 1.2 or 2.22
-    def F3_function(self, pos):
+    def schwefel_2_22_function(self, pos):
         inner_sums = np.cumsum(pos)
         squared_sums = inner_sums ** 2
         return np.sum(squared_sums)
 
     # Max function
-    def F4_function(self, pos):
+    def max_function(self, pos):
         return np.max(np.abs(pos))
 
     # Rosenbrock's function
-    def F5_function(self, pos):
+    def rosenbrock_function(self, pos):
         pos_i = pos[:-1]
         pos_i_plus_1 = pos[1:]
         term1 = 100 * (pos_i_plus_1 - pos_i**2)**2
@@ -37,7 +70,7 @@ class benchmark():
         return total_sum
 
     # Step function
-    def F6_function(self, pos):
+    def step_function(self, pos):
         x_plus_0_5 = pos + 0.5
         # floored_x = np.floor(x_plus_0_5)
         # squared_values = floored_x**2
@@ -46,7 +79,7 @@ class benchmark():
         return total_sum
 
     # Quartic function
-    def F7_function(self, pos):
+    def quartic_function(self, pos):
         dimension = self.dim
         i_vector = np.arange(1, dimension + 1)
         x_pow_4 = pos**4
@@ -60,13 +93,13 @@ class benchmark():
 
     # Multimodal Test Functions (F8 - F12)
     # Schwefel's function 2.26
-    def F8_function(self, pos):
+    def schwefel_2_26_function(self, pos):
         term = -pos * np.sin(np.sqrt(np.abs(pos)))
         total_sum = np.sum(term)
         return total_sum
 
     # Rastrigin's function
-    def F9_function(self, pos):
+    def rastrigin_function(self, pos):
         part1 = pos**2
         part2 = 10 * np.cos(2 * np.pi * pos)
         terms = part1 - part2 + 10
@@ -74,7 +107,7 @@ class benchmark():
         return total_sum
 
     # Ackley Function
-    def F10_function(self, pos):
+    def ackley_function(self, pos):
         dimension = self.dim
         sum_sq = np.sum(pos**2)
         avg_sum_sq = sum_sq / dimension
@@ -87,7 +120,7 @@ class benchmark():
         return total_sum
 
     # Griewank Function
-    def F11_function(self, pos):
+    def griewank_function(self, pos):
         dimension = self.dim
         sum_sq = np.sum(pos**2)
         part1 = sum_sq / 4000
@@ -113,7 +146,7 @@ class benchmark():
         return u_vals
 
     # Levy's function
-    def F12_function(self, pos):
+    def levy_function(self, pos):
         original_ndim = pos.ndim
         if original_ndim == 1:
             pos = pos[np.newaxis, :]

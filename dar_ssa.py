@@ -33,7 +33,8 @@ class darssa():
             return 1.0 - coverage_rate
         else:
             obj_func = benchmark(self.lb, self.ub, self.dim)
-            func_to_call = getattr(obj_func, self.func_name)
+            method_name = f"{self.func_name}_function"
+            func_to_call = getattr(obj_func, method_name)
             f_name = func_to_call(val)
         return f_name
 
