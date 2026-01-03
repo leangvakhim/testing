@@ -13,6 +13,10 @@ class efssa():
         self.params = params
         self.func_name = func_name
 
+        self.beta0 = 1.0
+        self.gamma = 1.0
+        self.alpha = 0.2
+
     def initialization(self):
         X = self.lb + np.random.rand(self.n, self.dim) * (self.ub - self.lb)
         return X
@@ -97,10 +101,12 @@ class efssa():
                 C = np.sum(diff * A) / self.dim
                 step_simplified = C * L
                 c_pos[i, :] = global_best_position + step_simplified
-            return c_pos
+        return c_pos
 
     def danger_aware(self, c_pos, fitness_value, sd_count, global_best_fitness, global_best_position, global_worst_fitness, global_worst_position):
         epsilon = self.params['epsilon']
+
+        best_index = np.argmin(fitness_value)
 
         danger_indices = np.random.choice(self.n, sd_count, replace=False)
 
@@ -110,15 +116,14 @@ class efssa():
 
             # Sparrow is at the edge
             if f_i > global_best_fitness:
-                beta = np.random.randn()
-                c_pos[i, :] = global_best_position + beta * np.abs(X_i - global_best_position)
+                c_pos[i, :] = self.firefly_move(current=i, target=best_index)
             # Sparrow is at the middle (the best)
-            elif f_i == global_best_fitness:
+            else:
                 K = np.random.uniform(-1, 1)
                 numerator = np.abs(X_i - global_worst_position)
                 denominator = (f_i - global_worst_fitness) + epsilon
                 c_pos[i, :] = X_i + K * (numerator / denominator)
-            return c_pos
+        return c_pos
 
     def run(self):
         pd_percent = 0.2
