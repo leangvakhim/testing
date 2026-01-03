@@ -1,4 +1,4 @@
-from ssa_pm import ssapm
+from dar_ssa import darssa
 from coverage import coverage
 from benchmark import benchmark
 import numpy as np
@@ -18,7 +18,8 @@ params = {
     'a_min':0.01,
     'a_max':0.4,
     'danger_p': 0.1,
-    'gamma': 1.5,
+    'gamma': 1.2,
+    # 'gamma': 1.5,
     'omega': 0.7,
 
     # Dynamic Role (producer <=> scrounger)
@@ -44,7 +45,7 @@ if val == 1:
     params['num_nodes'] = num_sensor
     func_name='coverage_optimization'
     # x = lb + np.random.rand(num_sensor, dim) * (ub - lb)
-    testing = ssapm(lb, ub, dim, pop_size, max_iter, params, func_name)
+    testing = darssa(lb, ub, dim, pop_size, max_iter, params, func_name)
     # x_val = testing.initialize()
     best_fitness, best_pos, convergence_curve = testing.run()
     best_pos_reshaped = best_pos.reshape(num_sensor, 2)
@@ -126,7 +127,7 @@ elif val == 2:
     #     print(f"F{f_id:<4} | {mean_val:.4e} | {std_val:4e} | {best_val:4e} | {worst_val:4e}")
 
     for _ in range(times):
-        testing = ssapm(lb, ub, dim, pop_size, max_iter, params, func_name)
+        testing = darssa(lb, ub, dim, pop_size, max_iter, params, func_name)
         best_fitness, best_pos, convergence_curve = testing.run()
         list_val.append(best_fitness)
     mean_val = np.mean(list_val)

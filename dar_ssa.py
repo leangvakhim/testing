@@ -3,9 +3,10 @@ from benchmark import benchmark
 from tqdm import tqdm
 from coverage import coverage
 from scipy.spatial import Voronoi, Delaunay
+from scipy.stats import qmc
 import math
 
-class ssapm():
+class darssa():
     def __init__(self, lb, ub, dim, n, max_iter, params, func_name):
         self.lb = lb
         self.ub = ub
