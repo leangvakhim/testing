@@ -13,7 +13,7 @@ class efssa():
         self.params = params
         self.func_name = func_name
 
-        # Firefly parameters (Eq 16 & 17)
+        # Firefly parameters (from Algorithm 1 description & Eq 16, 17)
         self.beta0 = 1.0
         self.gamma = 1.0
         self.alpha = 0.2
@@ -38,7 +38,7 @@ class efssa():
             cov = coverage(w, h, num_nodes, sensing_radius, r_error, pos_reshaped)
             coverage_rate = cov.calculate_probabilistics_coverage()
 
-            # Maximizing Coverage
+            # Maximizing Coverage = Minimizing (1 - Coverage)
             return 1.0 - coverage_rate
 
         else:
@@ -94,80 +94,42 @@ class efssa():
 
         return np.clip(new_pos, self.lb, self.ub)
 
-    def update_producers(self, c_pos, fitness, iter_max, pd_count, current_iter):
-        # Updates position of the Finders (Eq 8)
-        st = self.params['st'] # Warning threshold (0.8)
-
-        new_c_pos = c_pos.copy()
-        new_fitness = fitness.copy()
+    def update_producers(self, c_pos, iter_max, pd_count, current_iter):
+        # Updates position of the "Finders" (Eq 8)
+        st = self.params['st'] # Warning threshold (usually 0.8)
 
         for i in range(pd_count):
             R2 = np.random.rand()
-            current_p = c_pos[i, :].copy()
-
             if R2 < st:
                 # Safe mode: extensive search
                 alpha = np.random.rand()
                 exponent = - (current_iter + 1) / (alpha * iter_max)
-                candidate_pos = current_p * np.exp(exponent)
+                c_pos[i, :] = c_pos[i, :] * np.exp(exponent)
             else:
                 # Danger mode: Random walk / move to safe area
                 Q = np.random.normal()
                 L = np.ones(self.dim)
-                candidate_pos = current_p + Q * L
+                c_pos[i, :] = c_pos[i, :] + Q * L
+        return c_pos
 
-            # Bound check
-            candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
-
-            # Only update if the new position is better
-            candidate_fit = self.obj_func(candidate_pos)
-
-            if candidate_fit < fitness[i]:
-                new_c_pos[i, :] = candidate_pos
-                new_fitness[i] = candidate_fit
-            else:
-                # Keep old position
-                new_c_pos[i, :] = current_p
-                new_fitness[i] = fitness[i]
-
-        return new_c_pos, new_fitness
-
-    def update_scroungers(self, c_pos, fitness, pd_count, global_best_position, global_worst_position):
-        # Updates position of the Joiners (Eq 10)
-
-        new_c_pos = c_pos.copy()
-        new_fitness = fitness.copy()
-
+    def update_scroungers(self, c_pos, pd_count, global_best_position, global_worst_position):
+        # Updates position of the "Joiners" (Eq 10)
         for i in range(pd_count, self.n):
-            current_p = c_pos[i, :].copy()
-
             if i > self.n / 2:
+                # Hungry/Worst case: Move towards optimum logarithmically
                 Q = np.random.randn()
-                numerator = global_worst_position - current_p
-                exponent = numerator / ((i**2) + 1e-10)
-                candidate_pos = Q * np.exp(exponent)
+                exponent = (global_worst_position - c_pos[i, :]) / (i**2)
+                c_pos[i, :] = Q * np.exp(exponent)
             else:
-                diff = np.abs(current_p - global_best_position)
-                direction = np.random.choice([-1, 1], size=self.dim)
-                candidate_pos = global_best_position + diff * direction * (1.0 / self.dim)
-
-            # Bound check
-            candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
-
-            # GREEDY SELECTION
-            candidate_fit = self.obj_func(candidate_pos)
-
-            if candidate_fit < fitness[i]:
-                new_c_pos[i, :] = candidate_pos
-                new_fitness[i] = candidate_fit
-            else:
-                new_c_pos[i, :] = current_p
-                new_fitness[i] = fitness[i]
-
-        return new_c_pos, new_fitness
+                # Follower case: Move near the best position
+                # Implements: X_best + |X - X_best| * A+ * L
+                diff = np.abs(c_pos[i, :] - global_best_position)
+                direction = np.random.choice([-1, 1], size=self.dim) # Simulates A+
+                c_pos[i, :] = global_best_position + diff * direction * (1.0 / self.dim)
+        return c_pos
 
     def danger_aware(self, c_pos, fitness_value, sd_count, global_best_fitness, global_best_position, global_worst_fitness, global_worst_position):
-        # Implements "Detection and early warning" with Firefly Strategy
+        # Implements "Detection and early warning" with Firefly Strategy (Eq 11 modification + Firefly)
         epsilon = self.params['epsilon']
         best_index = np.argmin(fitness_value)
 
@@ -177,28 +139,22 @@ class efssa():
         for i in danger_indices:
             f_i = fitness_value[i]
             X_i = c_pos[i, :].copy()
-            candidate_pos = X_i.copy()
 
             if f_i > global_best_fitness:
                 # Use Firefly move to jump out of local optimum
-                candidate_pos = self.firefly_move(current=i, target=best_index)
+                new_pos = self.firefly_move(current=i, target=best_index)
+
+                # Greedy selection: only update if better
+                new_fit = self.obj_func(new_pos)
+                if new_fit < f_i:
+                    c_pos[i, :] = new_pos
+                    fitness_value[i] = new_fit
 
             elif np.abs(f_i - global_best_fitness) < 1e-9:
-                # Move away from worst
                 K = np.random.uniform(-1, 1)
                 numerator = np.abs(X_i - global_worst_position)
                 denominator = (f_i - global_worst_fitness) + epsilon
-                candidate_pos = X_i + K * (numerator / denominator)
-
-            # Bound check
-            candidate_pos = np.clip(candidate_pos, self.lb, self.ub)
-
-            # Greedy Check
-            new_fit = self.obj_func(candidate_pos)
-            if new_fit < f_i:
-                c_pos[i, :] = candidate_pos
-                fitness_value[i] = new_fit
-
+                c_pos[i, :] = X_i + K * (numerator / denominator)
         return c_pos
 
     def run(self):
@@ -212,10 +168,7 @@ class efssa():
         self.population = self.initialization()
         self.fitness = np.array([self.obj_func(x) for x in self.population])
 
-        # Track Global Best History (Strictly Monotonic)
-        self.global_best_fitness = np.min(self.fitness)
-        self.global_best_position = self.population[np.argmin(self.fitness)].copy()
-
+        # Main Loop (Alg 2: while t < Imax)
         for t in tqdm(range(self.max_iter), desc=f"EFSSA Progress"):
 
             # 2. Elite Reverse Strategy
@@ -226,38 +179,48 @@ class efssa():
             self.population = self.population[sorted_indices]
             self.fitness = self.fitness[sorted_indices]
 
-            # Update global best if the elite strategy found something better
-            if self.fitness[0] < self.global_best_fitness:
-                self.global_best_fitness = self.fitness[0]
-                self.global_best_position = self.population[0].copy()
-
-            # Get iteration worst for equations
+            # Get Bests/Worsts
+            current_global_best_position = self.population[0, :].copy()
+            current_global_best_fitness = self.fitness[0]
             global_worst_position = self.population[-1, :].copy()
 
             # 3. Update Producers (Finders)
-            self.population, self.fitness = self.update_producers(self.population, self.fitness, self.max_iter, pd_count, t)
+            self.population = self.update_producers(self.population, self.max_iter, pd_count, t)
+
+            # Recalculate fitness for updated producers
+            for i in range(pd_count):
+                self.population[i] = np.clip(self.population[i], self.lb, self.ub)
+                self.fitness[i] = self.obj_func(self.population[i])
 
             # 4. Update Scroungers (Joiners)
-            self.population, self.fitness = self.update_scroungers(self.population, self.fitness, pd_count, self.global_best_position, global_worst_position)
+            self.population = self.update_scroungers(self.population, pd_count, current_global_best_position, global_worst_position)
 
-            # Update stats before warning phase
-            current_iter_best = np.min(self.fitness)
-            if current_iter_best < self.global_best_fitness:
-                self.global_best_fitness = current_iter_best
-                self.global_best_position = self.population[np.argmin(self.fitness)].copy()
+            # Recalculate fitness for updated scroungers
+            for i in range(pd_count, self.n):
+                self.population[i] = np.clip(self.population[i], self.lb, self.ub)
+                self.fitness[i] = self.obj_func(self.population[i])
 
+            # Update global stats before warning phase
+            current_global_best_fitness = np.min(self.fitness)
+            current_global_best_position = self.population[np.argmin(self.fitness)].copy()
             current_global_worst_fitness = np.max(self.fitness)
             current_global_worst_position = self.population[np.argmax(self.fitness)].copy()
 
             # 5. Danger Aware (Firefly Strategy)
-            self.population = self.danger_aware(self.population, self.fitness, sd_count, self.global_best_fitness, self.global_best_position, current_global_worst_fitness, current_global_worst_position)
+            self.population = self.danger_aware(self.population, self.fitness, sd_count, current_global_best_fitness, current_global_best_position, current_global_worst_fitness, current_global_worst_position)
 
-            # Final check for this iteration
-            current_iter_best = np.min(self.fitness)
-            if current_iter_best < self.global_best_fitness:
-                self.global_best_fitness = current_iter_best
-                self.global_best_position = self.population[np.argmin(self.fitness)].copy()
+            current_iter_best_fit = np.min(self.fitness)
 
-            convergence_curve.append(self.global_best_fitness)
+            # Elitism Check: If iteration best is worse than global best, restore global best
+            if current_iter_best_fit > current_global_best_fitness:
+                 # Ensure we carry forward the absolute best found so far
+                 worst_idx = np.argmax(self.fitness)
+                 self.population[worst_idx, :] = current_global_best_position
+                 self.fitness[worst_idx] = current_global_best_fitness
+            else:
+                 current_global_best_fitness = current_iter_best_fit
+                 current_global_best_position = self.population[np.argmin(self.fitness)].copy()
 
-        return self.global_best_fitness, self.global_best_position, convergence_curve
+            convergence_curve.append(current_global_best_fitness)
+
+        return current_global_best_fitness, current_global_best_position, convergence_curve
