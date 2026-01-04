@@ -79,14 +79,14 @@ elif val == 2:
     # f4: "max"          f5: "rosenbrock"      f6: "step"
     # f7: "quartic"      f8: "schwefel_2_26"   f9: "rastrigin"
     # f10: "ackley"      f11: "griewank"
-    times = 30
+    times = 10
     # lb = -30
     # ub = 30
     # dim = 30
     pop_size = 50
     max_iter = 500
     list_val = []
-    func_name = "griewank"
+    func_name = "rosenbrock"
     func, lb, ub, dim, target = benchmark.get_function(func_name)
 
     # CEC 2017 (F1 - F30)
